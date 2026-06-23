@@ -19,8 +19,8 @@ from urllib.parse import unquote
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 os.chdir(SCRIPT_DIR)
 
-PORT = 8080
-Z_DRIVE = r"Z:\PlanosSapProduccion"
+PORT = 8081
+Z_DRIVE = r"Z:"
 
 class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -60,13 +60,13 @@ print()
 print("PASOS PARA VER IMÁGENES:")
 print("1. Ejecuta mapear_unidad_z.bat (si no has iniciado Z:)")
 print("2. Ejecuta este script (servidor_local.py)")
-print("3. Abre http://localhost:8080 en Chrome")
+print("3. Abre http://localhost:8081 en Chrome")
 print()
 print("Presiona Ctrl+C para detener el servidor")
 print("=" * 50)
 
 # Abrir automáticamente el navegador
-webbrowser.open(f'http://localhost:{PORT}/visor_planos.html')
+webbrowser.open(f'http://localhost:{PORT}/nuevo.html')
 
 # Iniciar servidor
 with socketserver.TCPServer(("", PORT), MyHTTPRequestHandler) as httpd:
@@ -74,3 +74,4 @@ with socketserver.TCPServer(("", PORT), MyHTTPRequestHandler) as httpd:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nServidor detenido.")
+ 

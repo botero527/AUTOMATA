@@ -1,8 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
-EXTRACTOR 090 TOYOTA - Extracción directa de campos técnicos
-Busca campos técnicos específicos y extrae el valor a su derecha
+EXTRACTOR JEEP - Similar a extraer_090_toyota.py
+================================================
+- Convierte archivo por archivo usando ODA
+- Extrae campos técnicos (OFFSET, ACERO, BN+D, etc.)
+- Busca imágenes en la base de datos
 """
 import os
 import sys
@@ -17,8 +18,7 @@ from datetime import datetime
 
 # ============== CONFIGURACIÓN ==============
 SERVIDOR = r"\\192.168.2.37\ingenieria\PRODUCCION\AGP PLANOS TECNICOS"
-VEHICULO = "TOYOTA"
-SUFIJO = "090.dwg"
+VEHICULO = "SUZUKI"
 
 ODA_EXE = r"C:\Program Files\ODA\ODAFileConverter 27.1.0\ODAFileConverter.exe"
 
@@ -28,7 +28,7 @@ DB_BD = 'DB_COL_SAP'
 USER_BD = 'Viewer'
 PSW_BD = 'AgpconsCol2023'
 
-# Campos técnicos a buscar - SOLO palabras clave técnicas
+# Campos técnicos a buscar
 CAMPOS_A_BUSCAR = [
     "OFFSET", "BN+D", "BN INT", "ACERO", "STEEL", "ESPESOR", 
     "LARGO", "ANCHO", "PESO", "MATERIAL", "BANDA", "TIPO", "MEDIDA"
@@ -43,7 +43,6 @@ def buscar_imagenes_en_bd(nombre_dwg):
     """
     imagenes = []
     try:
-        # Extraer el número del documento del nombre del DWG
         nombre_base = os.path.splitext(nombre_dwg)[0].upper()
         numeros = re.split(r'[^0-9]+', nombre_base)
         numeros = [n for n in numeros if n]
@@ -51,7 +50,6 @@ def buscar_imagenes_en_bd(nombre_dwg):
         if not numeros:
             return []
         
-        # Construir el código de búsqueda: M + números
         if len(numeros) >= 3:
             codigo = f"M{numeros[0]} {numeros[1]} {numeros[2]}"
         elif len(numeros) == 2:
@@ -59,17 +57,14 @@ def buscar_imagenes_en_bd(nombre_dwg):
         else:
             codigo = f"M{numeros[0]}"
         
-        # Conectar a la base de datos
         conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={SERVER_BD};DATABASE={DB_BD};UID={USER_BD};PWD={PSW_BD}'
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         
-        # Buscar TODAS las imágenes relacionadas
         query = """
             SELECT PLANO 
             FROM [dbo].[ODATA_ZFER_RUTAS_JPG] 
-            WHERE PLANO LIKE ? 
-            OR DOCUMENTO LIKE ?
+            WHERE PLANO LIKE ? OR DOCUMENTO LIKE ?
         """
         
         param = f"%{codigo}%"
@@ -77,16 +72,15 @@ def buscar_imagenes_en_bd(nombre_dwg):
         
         for row in cursor.fetchall():
             if row.PLANO:
-                # La URL ya viene con el servidor: \192.168.2.2\Sapfiles\...
                 imagenes.append(row.PLANO)
         
         conn.close()
         
         if imagenes:
-            print(f"    -> BD: {len(imagenes)} imágenes encontradas")
+            print_progress(f"    -> BD: {len(imagenes)} imágenes", "OK")
             
     except Exception as e:
-        print(f"    -> Error BD: {e}")
+        print_progress(f"    -> Error BD: {e}", "ERR")
     
     return imagenes[:10]
 
@@ -97,46 +91,50 @@ def print_progress(msg, tipo="INFO"):
     sys.stdout.flush()
 
 
-def buscar_archivos(servidor, vehiculo, sufijo):
-    print_progress(f"Buscando archivos *{sufijo} en {vehiculo}...")
+def buscar_archivos(servidor, vehiculo):
+    """Busca TODOS los archivos DWG del vehículo"""
+    print_progress(f"Buscando archivos DWG en {vehiculo}...")
     ruta_vehiculo = os.path.join(servidor, vehiculo)
     archivos = []
     
     for root, dirs, files in os.walk(ruta_vehiculo):
-        if '_DXF' in root:
+        if '_DXF' in root or '_dxf' in root:
             continue
         for f in files:
-            if f.lower().endswith(sufijo.lower()):
+            if f.lower().endswith('.dwg'):
                 archivos.append({
                     'ruta': os.path.join(root, f),
                     'nombre': f,
                     'carpeta': os.path.basename(root)
                 })
     
-    print_progress(f"Encontrados {len(archivos)} archivos", "OK")
+    print_progress(f"Encontrados {len(archivos)} archivos DWG", "OK")
     return archivos
 
 
 def convertir_dwg_a_dxf(dwg_path, temp_dir):
-    carpeta = os.path.dirname(dwg_path)
-    nombre = os.path.basename(dwg_path)
-    
-    cmd = [ODA_EXE, carpeta, temp_dir, "ACAD2018", "DXF", "0", "0"]
-    subprocess.run(cmd, capture_output=True, text=True)
-    
-    dxf_path = os.path.join(temp_dir, os.path.splitext(nombre)[0] + ".dxf")
-    return dxf_path if os.path.exists(dxf_path) else None
+    """Convierte un DWG a DXF usando ODA (igual que antes)"""
+    try:
+        carpeta = os.path.dirname(dwg_path)
+        nombre = os.path.basename(dwg_path)
+        
+        # ODA: input_folder output_folder version format recurse silent
+        cmd = [ODA_EXE, carpeta, temp_dir, "ACAD2018", "DXF", "0", "0"]
+        subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        dxf_path = os.path.join(temp_dir, os.path.splitext(nombre)[0] + ".dxf")
+        return dxf_path if os.path.exists(dxf_path) else None
+    except Exception as e:
+        print_progress(f"Error converting: {e}", "ERR")
+        return None
 
 
 def extraer_campos_tecnicos(dxf_path):
-    """
-    Busca campos técnicos específicos en el DXF y extrae el valor a la derecha
-    """
+    """Busca campos técnicos específicos en el DXF"""
     try:
         doc = ezdxf.readfile(dxf_path)
         msp = doc.modelspace()
         
-        # Recolectar todos los textos con su posición
         textos = []
         
         # TEXT
@@ -187,13 +185,12 @@ def extraer_campos_tecnicos(dxf_path):
         if not textos:
             return []
         
-        # BUSCAR PALABRAS CLAVE Y SUS VALORES (derecha Y abajo - formato tabla)
+        # BUSCAR PALABRAS CLAVE Y SUS VALORES
         datos_encontrados = {}
         
         for t in textos:
             texto_upper = t['texto'].upper().strip()
             
-            # Verificar si es una palabra clave
             es_campo = False
             for kw in CAMPOS_A_BUSCAR:
                 if kw.upper() in texto_upper or texto_upper.startswith(kw.upper()):
@@ -204,7 +201,7 @@ def extraer_campos_tecnicos(dxf_path):
                 campo = t['texto'].strip()
                 valores_encontrados = []
                 
-                # 1. Buscar valores a la DERECHA (misma fila)
+                # Valores a la DERECHA
                 for otro in textos:
                     if abs(otro['y'] - t['y']) < 2 and otro['x'] > t['x']:
                         distancia = otro['x'] - t['x']
@@ -214,7 +211,7 @@ def extraer_campos_tecnicos(dxf_path):
                             if not es_otra_kw and otro['texto'].strip():
                                 valores_encontrados.append(otro['texto'].strip())
                 
-                # 2. Buscar valores ABAJO (misma columna)
+                # Valores ABAJO
                 textos_debajo = [otro for otro in textos if otro['y'] < t['y'] - 2 and otro['y'] > t['y'] - 30]
                 textos_debajo.sort(key=lambda x: x['y'], reverse=True)
                 
@@ -244,6 +241,7 @@ def extraer_campos_tecnicos(dxf_path):
 
 
 def procesar_archivos(archivos, temp_dir):
+    """Procesa cada archivo"""
     resultados = []
     exitosos = 0
     errores = 0
@@ -272,8 +270,8 @@ def procesar_archivos(archivos, temp_dir):
                     'archivo': info['nombre'],
                     'carpeta': info['carpeta'],
                     'tablas': tablas,
-                    'imagenes': imagenes,
-                    'resumen': resumen
+                    'resumen': resumen,
+                    'imagenes': imagenes
                 })
             else:
                 print_progress(f"  -> Sin datos técnicos", "WARN")
@@ -282,18 +280,18 @@ def procesar_archivos(archivos, temp_dir):
                     'archivo': info['nombre'],
                     'carpeta': info['carpeta'],
                     'tablas': [],
-                    'imagenes': imagenes,
-                    'resumen': {}
+                    'resumen': {},
+                    'imagenes': imagenes
                 })
         else:
-            print_progress(f"  -> Sin datos técnicos", "WARN")
+            print_progress(f"  -> Sin convertir", "WARN")
             errores += 1
             resultados.append({
                 'archivo': info['nombre'],
                 'carpeta': info['carpeta'],
                 'tablas': [],
-                'imagenes': imagenes,
-                'resumen': {}
+                'resumen': {},
+                'imagenes': imagenes
             })
     
     return resultados, exitosos, errores
@@ -303,7 +301,6 @@ def guardar_json(resultados, exitosos, errores, output_path):
     datos = {
         "metadata": {
             "vehiculo": VEHICULO,
-            "sufijo": SUFIJO,
             "total_archivos": len(resultados),
             "exitosos": exitosos,
             "errores": errores,
@@ -312,6 +309,7 @@ def guardar_json(resultados, exitosos, errores, output_path):
         "planos": resultados
     }
     
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(datos, f, indent=2, ensure_ascii=False)
     
@@ -327,7 +325,6 @@ def guardar_excel(resultados, output_path):
         ws = wb.active
         ws.title = "Planos"
         
-        # Encabezados
         headers = ["Archivo", "Carpeta", "Campo", "Valor"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
@@ -355,12 +352,12 @@ def guardar_excel(resultados, output_path):
                 ws.cell(row=row, column=4, value="")
                 row += 1
         
-        # Ajustar anchos
         ws.column_dimensions['A'].width = 30
         ws.column_dimensions['B'].width = 30
         ws.column_dimensions['C'].width = 15
         ws.column_dimensions['D'].width = 40
         
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         wb.save(output_path)
         print_progress(f"Excel: {output_path}", "OK")
         
@@ -370,11 +367,11 @@ def guardar_excel(resultados, output_path):
 
 def main():
     print("=" * 60)
-    print("  EXTRACTOR 090 TOYOTA - Campos Técnicos")
+    print(f"  EXTRACTOR {VEHICULO} - Todos los archivos")
     print("=" * 60)
     print()
     
-    archivos = buscar_archivos(SERVIDOR, VEHICULO, SUFIJO)
+    archivos = buscar_archivos(SERVIDOR, VEHICULO)
     
     if not archivos:
         print("No se encontraron archivos")
@@ -394,13 +391,12 @@ def main():
     print(f"  Total:       {len(archivos)}")
     print(f"  Exitosos:   {exitosos}")
     print(f"  Errores:    {errores}")
-    print(f"  JSON:       output/TOYOTA_090.json")
-    print(f"  Excel:      output/TOYOTA_090.xlsx")
+    print(f"  JSON:       output/{VEHICULO}_TODO.json")
+    print(f"  Excel:      output/{VEHICULO}_TODO.xlsx")
     print("=" * 60)
     
-    # Guardar archivos
-    guardar_json(resultados, exitosos, errores, "output/TOYOTA_090.json")
-    guardar_excel(resultados, "output/TOYOTA_090.xlsx")
+    guardar_json(resultados, exitosos, errores, f"output/{VEHICULO}_TODO.json")
+    guardar_excel(resultados, f"output/{VEHICULO}_TODO.xlsx")
 
 
 if __name__ == "__main__":

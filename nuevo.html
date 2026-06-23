@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AGP SGLASS - Visor de Planos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap%22 rel="stylesheet">
+  <style>
+    :root {
+      /* AGP Corporate Colors based on img3 */
+      --agp-teal: #4CA1B0;
+      --agp-teal-light: #EBF5F7;
+      --agp-teal-hover: #3D8997;
+      --agp-teal-gradient: linear-gradient(135deg, #4CA1B0 0%, #357B88 100%);
+     
+      --agp-gray: #586575;
+      --agp-gray-light: #9AA4B2;
+     
+      --bg-app: #F4F6F8;
+      --bg-card: #FFFFFF;
+      --bg-panel: #FFFFFF;
+     
+      --text-main: #2D3748;
+      --text-muted: #718096;
+     
+      --border-light: #E2E8F0;
+     
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --radius-pill: 9999px;
+     
+      --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.03);
+      --shadow-hover: 0 10px 25px rgba(76, 161, 176, 0.15);
+    }
+ 
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+ 
+    h1, h2, h3, h4, .brand {
+      font-family: 'Outfit', sans-serif;
+    }
+ 
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--agp-gray-light); }
+ 
+    /* LAYOUT: 3 Columns */
+    .sidebar {
+      width: 280px;
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border-light);
+      z-index: 10;
+    }
+ 
+    .tree-panel {
+      width: 320px;
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border-light);
+      z-index: 5;
+    }
+ 
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-y: auto;
+    }
+ 
+    /* ---------------- Sidebar ---------------- */
+    .brand-section {
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+   
+    .brand-logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--agp-teal);
+      letter-spacing: -0.5px;
+    }
+    .brand-logo span { color: var(--agp-gray); font-weight: 400; }
+ 
+    .nav-section {
+      padding: 0 16px;
+      margin-bottom: 24px;
+    }
+    .nav-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--agp-gray-light);
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      padding-left: 12px;
+    }
+ 
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      margin-bottom: 4px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      color: var(--agp-gray);
+      font-weight: 500;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+    .nav-item:hover {
+      background: var(--bg-app);
+      color: var(--agp-teal);
+    }
+    .nav-item.active {
+      background: var(--agp-teal);
+      color: white;
+      box-shadow: 0 4px 12px rgba(76, 161, 176, 0.3);
+    }
+   
+    .nav-badge {
+      background: rgba(0,0,0,0.05);
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .nav-item.active .nav-badge {
+      background: rgba(255,255,255,0.2);
+    }
+ 
+    .filters-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px;
+    }
+ 
+    /* ---------------- Tree Panel ---------------- */
+    .tree-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border-light);
+      background: var(--bg-panel);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .tree-header h3 {
+      font-size: 18px;
+      color: var(--text-main);
+      margin-bottom: 16px;
+    }
+   
+    .search-box {
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 12px 16px 12px 40px;
+      background: var(--bg-app);
+      border: 1px solid transparent;
+      border-radius: var(--radius-lg);
+      font-family: inherit;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--agp-teal);
+      background: white;
+      box-shadow: 0 0 0 4px var(--agp-teal-light);
+    }
+    .search-box svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--agp-gray-light);
+    }
+ 
+    .tree-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+ 
+    /* Tree group styling */
+    .folder-group {
+      margin-bottom: 12px;
+    }
+    .folder-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--agp-gray);
+      padding: 8px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+    }
+    .folder-title:hover { background: var(--bg-app); }
+    .folder-title svg { transition: transform 0.2s; color: var(--agp-teal); }
+    .folder-group.open .folder-title svg { transform: rotate(90deg); }
+   
+    .folder-items {
+      display: none;
+      padding-left: 24px;
+      margin-top: 4px;
+    }
+    .folder-group.open .folder-items { display: block; }
+   
+    .file-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: var(--shadow-soft);
+    }
+    .file-card:hover {
+      border-color: var(--agp-teal);
+      transform: translateY(-2px);
+    }
+    .file-card.active {
+      background: var(--agp-teal-light);
+      border-color: var(--agp-teal);
+      box-shadow: 0 0 0 1px var(--agp-teal);
+    }
+   
+    .file-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      word-break: break-all;
+    }
+    .file-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-weight: 500;
+    }
+    .status-ok { background: #E6F4EA; color: #1E8E3E; }
+    .status-err { background: #FCE8E6; color: #D93025; }
+ 
+    /* ---------------- Main Panel (Bento Grid Layout) ---------------- */
+    .top-actions {
+      position: absolute;
+      top: 24px;
+      right: 32px;
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+    .action-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      padding: 8px 16px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--agp-gray);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      box-shadow: var(--shadow-soft);
+    }
+    .action-btn:hover {
+      border-color: var(--agp-teal);
+      color: var(--agp-teal);
+    }
+    .action-select {
+      appearance: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      padding: 8px 36px 8px 16px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--agp-gray);
+      cursor: pointer;
+      box-shadow: var(--shadow-soft);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23586575' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .action-select:focus { outline: none; border-color: var(--agp-teal); }
+ 
+    .details-content {
+      padding: 90px 40px 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+ 
+    /* Bento Grid */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 24px;
+    }
+ 
+    .bento-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid var(--border-light);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .bento-card:hover { box-shadow: var(--shadow-hover); }
+ 
+    /* specific bento slots */
+    .bento-header {
+      grid-column: span 12;
+      background: var(--agp-teal-gradient);
+      color: white;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-height: 160px;
+      border: none;
+    }
+    .bento-header::after {
+      content: '';
+      position: absolute;
+      top: -50%; right: -10%;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+      border-radius: 50%;
+    }
+    .file-main-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; z-index: 1; }
+    .file-sub-title { font-size: 14px; opacity: 0.9; z-index: 1; display:flex; align-items: center; gap: 8px; }
+ 
+    .bento-general { grid-column: span 5; }
+    .bento-info { grid-column: span 7; }
+    .bento-table { grid-column: span 4; }
+ 
+    .bento-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .bento-title svg { color: var(--agp-teal); }
+ 
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px dashed var(--border-light);
+      font-size: 14px;
+    }
+    .data-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .data-label { color: var(--text-muted); }
+    .data-value { font-weight: 600; color: var(--text-main); text-align: right;}
+ 
+    /* Table specific */
+    .bento-table {
+      background: #FAFCFE; /* Very light tint for tables */
+    }
+    .table-index {
+      background: var(--agp-teal-light);
+      color: var(--agp-teal);
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+ 
+    /* ===== CROSS LAYOUT ===== */
+    .cross-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.5fr 1fr;
+      grid-template-areas:
+        ". top ."
+        "left center right"
+        ". bottom .";
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .cross-zone {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      min-height: 120px;
+      box-shadow: var(--shadow-soft);
+    }
+    .cross-zone:hover { box-shadow: var(--shadow-hover); }
+    .cross-zone.q-top { grid-area: top; border-top: 3px solid #10B981; }
+    .cross-zone.q-left { grid-area: left; border-top: 3px solid #3B82F6; }
+    .cross-zone.q-right { grid-area: right; border-top: 3px solid #F59E0B; }
+    .cross-zone.q-bottom { grid-area: bottom; border-top: 3px solid #EF4444; }
+    .q-label {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 1px dashed var(--border-light);
+    }
+    .q-badge {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; color: white;
+    }
+    .q-badge-Arriba { background: #10B981; } .q-badge-Izquierda { background: #3B82F6; }
+    .q-badge-Derecha { background: #F59E0B; } .q-badge-Abajo { background: #EF4444; }
+    .q-title { font-size: 14px; font-weight: 600; color: var(--text-main); }
+    .q-subtitle { font-size: 11px; color: var(--text-muted); }
+    .q-count {
+      margin-left: auto; font-size: 12px; color: var(--text-muted);
+      background: var(--bg-app); padding: 2px 8px;
+      border-radius: var(--radius-pill); font-weight: 600;
+    }
+    .q-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px; opacity: 0.5; }
+    .cajetin-card {
+      background: var(--bg-app); border: 1px solid var(--border-light);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+    }
+    .cajetin-card:last-child { margin-bottom: 0; }
+    .cajetin-card:hover { border-color: var(--agp-teal); }
+    .cajetin-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px; font-size: 13px; font-weight: 600; color: var(--agp-gray);
+    }
+    .cajetin-orden {
+      width: 20px; height: 20px; background: var(--agp-teal-light); color: var(--agp-teal);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+    }
+    .cajetin-attr {
+      display: flex; justify-content: space-between; padding: 6px 0;
+      border-bottom: 1px dotted var(--border-light); font-size: 13px;
+    }
+    .cajetin-attr:last-child { border-bottom: none; }
+    .cajetin-key { color: var(--text-muted); }
+    .cajetin-val { font-weight: 600; color: var(--text-main); }
+    .componente-section {
+      border-top: 1px dashed var(--border-light);
+      padding-top: 8px; margin-top: 8px;
+    }
+    .componente-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .componente-label {
+      font-size: 11px; font-weight: 600; color: var(--agp-teal);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    @media (max-width: 900px) {
+      .cross-layout { grid-template-columns: 1fr; grid-template-areas: "top" "left" "right" "bottom"; }
+    }
+   
+    .empty-viewer {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--agp-gray-light);
+    }
+ 
+    /* Loader */
+    #loader {
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      visibility: hidden; opacity: 0; transition: 0.3s;
+    }
+    #loader.active { visibility: visible; opacity: 1; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border-light);
+      border-top-color: var(--agp-teal);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+   
+    /* Responsive tweaks */
+    @media (max-width: 1400px) {
+      .bento-table { grid-column: span 6; }
+    }
+    @media (max-width: 1100px) {
+      .bento-general, .bento-info { grid-column: span 12; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Modal para ver imagenes ampliada -->
+  <div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:1000; justify-content:center; align-items:center; cursor:pointer;" onclick="cerrarModal()">
+    <span style="position:absolute; top:20px; right:30px; color:white; font-size:40px; cursor:pointer;">&times;</span>
+    <img id="modal-img" style="max-width:95%; max-height:95%; border-radius:10px;">
+  </div>
+ 
+  <!-- Loading Overlay -->
+  <div id="loader" class="active">
+    <div class="spinner"></div>
+    <p style="margin-top: 16px; font-weight: 500; color: var(--text-main);">Inicializando entorno...</p>
+  </div>
+ 
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand-section">
+      <div class="brand-logo">AGP <span>SGLASS</span></div>
+    </div>
+   
+    <div class="nav-section">
+      <div class="nav-title">Vistas de Exploración</div>
+      <div class="nav-item active" id="btn-estado-todos" onclick="setFiltroEstado('todos')">
+        <span><svg style="vertical-align: middle; margin-right: 8px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Todos Integrados</span>
+        <span class="nav-badge" id="badge-todos">0</span>
+      </div>
+      <div class="nav-item" id="btn-estado-con_datos" onclick="setFiltroEstado('con_datos')">
+        <span><svg style="vertical-align: middle; margin-right: 8px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Extraídos con éxito</span>
+        <span class="nav-badge" id="badge-con_datos">0</span>
+      </div>
+      <div class="nav-item" id="btn-estado-sin_datos" onclick="setFiltroEstado('sin_datos')">
+        <span><svg style="vertical-align: middle; margin-right: 8px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pendientes / Sin Datos</span>
+        <span class="nav-badge" id="badge-sin_datos">0</span>
+      </div>
+      <div class="nav-item" id="btn-estado-con_imagenes" onclick="setFiltroEstado('con_imagenes')">
+        <span><svg style="vertical-align: middle; margin-right: 8px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Con Imágenes</span>
+        <span class="nav-badge" id="badge-con_imagenes">0</span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">Tipo de Pieza</div>
+      <select id="filtro-tipo" onchange="filtrarPorTipoPieza()" style="width:100%; padding:10px; border-radius:8px; border:2px solid var(--agp-teal); font-size:13px; cursor:pointer; margin-bottom:12px;">
+        <option value="">Todas las piezas</option>
+        <option value="000">000 - Parabrisas</option>
+        <option value="001">001 - Lateral Izquierdo</option>
+        <option value="002">002 - Lateral Derecho</option>
+        <option value="003">003 - Lateral Trasero Izq</option>
+        <option value="004">004 - Lateral Trasero Der</option>
+        <option value="005">005 - Ventilete Trasero Izq</option>
+        <option value="006">006 - Ventilete Trasero Der</option>
+        <option value="007">007 - Cabina Izquierda</option>
+        <option value="008">008 - Cabina Derecha</option>
+        <option value="009">009 - Posterior/Luneta</option>
+        <option value="010">010 - Sunroof Principal</option>
+        <option value="011">011 - Lateral Extendido Izq</option>
+        <option value="012">012 - Lateral Extendido Der</option>
+        <option value="019">019 - Ventilete Adelante Izq</option>
+        <option value="020">020 - Ventilete Adelante Der</option>
+        <option value="025">025 - Sunroof Secundario</option>
+        <option value="087">087 - Sunroof Terciario</option>
+        <option value="090">090 - Sunroof Panorámico</option>
+      </select>
+    </div>
+ 
+    <div class="nav-section" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
+      <div class="nav-title">Piezas (Modelos)</div>
+      <div class="filters-container" id="filtros-piezas">
+        <!-- Generado dinamicamente -->
+      </div>
+    </div>
+  </aside>
+ 
+  <!-- Tree Panel -->
+  <aside class="tree-panel">
+    <div class="tree-header">
+      <h3>Explorador de Archivos</h3>
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="buscador" placeholder="Buscar atributo, número..." oninput="aplicarFiltrosYBusqueda()">
+      </div>
+    </div>
+    <div class="tree-content" id="tree-container">
+      <!-- Archivos aca -->
+    </div>
+  </aside>
+ 
+  <!-- Main Details Panel -->
+  <main class="main-panel">
+    <div class="top-actions">
+      <select class="action-select" id="dataset-selector" onchange="cambiarDataset()">
+        <option value="">Cargando datasets...</option>
+      </select>
+     
+      <button class="action-btn" onclick="descargarExcel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Generar Reporte
+      </button>
+    </div>
+ 
+    <div class="details-content" id="detalles-container">
+      <div class="empty-viewer">
+        <svg style="width: 80px; height: 80px; opacity: 0.3; margin-bottom: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <h2 style="color: var(--text-main)">Seleccione un elemento</h2>
+        <p style="margin-top: 8px">Navegue por el explorador para inspeccionar propiedades técnicas.</p>
+      </div>
+    </div>
+  </main>
+ 
+  <script>
+    // Datasets se cargan dinámicamente desde index_datasets.json
+    let datasetsDisponibles = [];
+    let datasetActualInfo = null;
+ 
+    let estado = {
+      planosValidos: [],
+      piezasExistentes: {},
+      filtroEstado: 'todos',
+      piezaSeleccionada: null,
+      tipoPiezaSeleccionado: '',
+      busqueda: ''
+    };
+ 
+    let datasetActual = '';
+ 
+    async function inicializarDatasets() {
+      try {
+        // Intentar cargar el índice dinámico
+        const res = await fetch('output/index_datasets.json');
+        if (!res.ok) throw new Error('Index no encontrado');
+        const indice = await res.json();
+        datasetsDisponibles = indice.datasets || [];
+      } catch (err) {
+        // Fallback: escanear archivos comunes
+        console.warn('Index no encontrado, usando fallback:', err.message);
+        const posibles = [
+          { id: 'SUZUKI', nombre: 'Suzuki', json_url: 'output/SUZUKI_TODO.json', excel_url: 'output/planos_tecnicos_organizado.xlsx' },
+          { id: 'JAGUAR', nombre: 'Jaguar', json_url: 'output/JAGUAR_TODO.json', excel_url: 'output/planos_tecnicos_organizado.xlsx' },
+          { id: 'TOYOTA', nombre: 'Toyota', json_url: 'output/TOYOTA_090.json', excel_url: 'output/planos_tecnicos_organizado.xlsx' }
+        ];
+ 
+        // Verificar cuáles existen
+        datasetsDisponibles = [];
+        for (const ds of posibles) {
+          try {
+            const check = await fetch(ds.json_url, { method: 'HEAD' });
+            if (check.ok) datasetsDisponibles.push(ds);
+          } catch(e) { /* skip */ }
+        }
+      }
+ 
+      // Poblar selector
+      const sel = document.getElementById('dataset-selector');
+      sel.innerHTML = '';
+      if (datasetsDisponibles.length === 0) {
+        sel.innerHTML = '<option value="">No hay datasets disponibles</option>';
+        mostrarLoader(false);
+        return;
+      }
+ 
+      datasetsDisponibles.forEach((ds, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx.toString();
+        opt.textContent = ds.nombre + (ds.total_planos ? ` (${ds.total_planos} planos)` : '');
+        sel.appendChild(opt);
+      });
+ 
+      // Cargar el primer dataset
+      sel.value = '0';
+      await cambiarDataset();
+    }
+ 
+    async function cambiarDataset() {
+      const sel = document.getElementById('dataset-selector');
+      const idx = parseInt(sel.value, 10);
+      if (isNaN(idx) || !datasetsDisponibles[idx]) return;
+ 
+      datasetActualInfo = datasetsDisponibles[idx];
+      await cargarDatos(datasetActualInfo.json_url);
+    }
+ 
+    async function cargarDatos(url) {
+      mostrarLoader(true);
+      try {
+        const res = await fetch(url);
+        if(!res.ok) throw new Error('Error de red');
+        const rawData = await res.json();
+        procesarDatos(rawData);
+      } catch (err) {
+        document.getElementById('tree-container').innerHTML = `<div style="color:red; padding:16px">Error: ${err.message}. Revise acceso a archivos.</div>`;
+      }
+      mostrarLoader(false);
+    }
+ 
+    function procesarDatos(rawData) {
+      const planos = rawData.planos || [];
+      estado.planosValidos = [];
+      estado.piezasExistentes = {};
+ 
+      let ctConDatos = 0, ctSinDatos = 0, ctConImagenes = 0;
+ 
+      planos.forEach((p, index) => {
+        if(!p.archivo) return;
+       
+        let pPieza = p.pieza;
+        if(!pPieza) {
+          const match = p.archivo.match(/\b([A-Z]*\s*\d{3,4})\b/i);
+          pPieza = match ? match[1].trim() : 'General';
+        }
+       
+        let pCarpeta = p.carpeta || 'Raíz del Proyecto';
+        const tieneDatos = p.tablas && p.tablas.length > 0;
+        const tieneImagenes = p.imagenes && p.imagenes.length > 0;
+       
+        if(tieneDatos) ctConDatos++; else ctSinDatos++;
+        if(tieneImagenes) ctConImagenes++;
+ 
+        if(!estado.piezasExistentes[pPieza]) estado.piezasExistentes[pPieza] = 0;
+        estado.piezasExistentes[pPieza]++;
+ 
+        estado.planosValidos.push({
+          ...p,
+          _piezaNormalizada: pPieza,
+          _carpetaNormalizada: pCarpeta,
+          _tieneDatos: tieneDatos,
+          _idxOriginal: index
+        });
+      });
+ 
+      document.getElementById('badge-todos').textContent = estado.planosValidos.length;
+      document.getElementById('badge-con_datos').textContent = ctConDatos;
+      document.getElementById('badge-sin_datos').textContent = ctSinDatos;
+      
+      const badgeImg = document.getElementById('badge-con_imagenes');
+      if(badgeImg) badgeImg.textContent = ctConImagenes;
+ 
+      estado.filtroEstado = 'todos';
+      estado.piezaSeleccionada = null;
+      document.getElementById('buscador').value = '';
+     
+      actualizarUiFiltrosBase();
+      renderizarFiltrosPiezas();
+      aplicarFiltrosYBusqueda();
+    }
+ 
+    function setFiltroEstado(tipo) {
+      estado.filtroEstado = tipo;
+      actualizarUiFiltrosBase();
+      aplicarFiltrosYBusqueda();
+    }
+ 
+    function togglePieza(pieza) {
+      estado.piezaSeleccionada = (estado.piezaSeleccionada === pieza) ? null : pieza;
+      renderizarFiltrosPiezas();
+      aplicarFiltrosYBusqueda();
+    }
+ 
+    function actualizarUiFiltrosBase() {
+      ['todos', 'con_datos', 'sin_datos', 'con_imagenes'].forEach(t => {
+        const el = document.getElementById(`btn-estado-${t}`);
+        if(el) el.classList.remove('active');
+      });
+      document.getElementById(`btn-estado-${estado.filtroEstado}`).classList.add('active');
+    }
+ 
+    function renderizarFiltrosPiezas() {
+      const cnt = document.getElementById('filtros-piezas');
+      let html = '';
+      Object.keys(estado.piezasExistentes).sort().forEach(pieza => {
+        const isAct = estado.piezaSeleccionada === pieza;
+        html += `
+          <div class="nav-item ${isAct ? 'active' : ''}" onclick="togglePieza('${pieza}')">
+            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis" title="Pieza ${pieza}">
+              📦 P. ${pieza}
+            </span>
+            <span class="nav-badge">${estado.piezasExistentes[pieza]}</span>
+          </div>
+        `;
+      });
+      cnt.innerHTML = html;
+    }
+ 
+    function aplicarFiltrosYBusqueda() {
+      estado.busqueda = document.getElementById('buscador').value.toLowerCase().trim();
+      estado.tipoPiezaSeleccionado = document.getElementById('filtro-tipo') ? document.getElementById('filtro-tipo').value : '';
+      
+      const res = estado.planosValidos.filter(p => {
+        if(estado.filtroEstado === 'con_datos' && !p._tieneDatos) return false;
+        if(estado.filtroEstado === 'sin_datos' && p._tieneDatos) return false;
+        if(estado.filtroEstado === 'con_imagenes' && (!p.imagenes || p.imagenes.length === 0)) return false;
+        if(estado.piezaSeleccionada && p._piezaNormalizada !== estado.piezaSeleccionada) return false;
+        if(estado.tipoPiezaSeleccionado) {
+          const tipo = getTipoPieza(p.archivo);
+          if(tipo !== estado.tipoPiezaSeleccionado) return false;
+        }
+        if(estado.busqueda && !JSON.stringify(p).toLowerCase().includes(estado.busqueda)) return false;
+        return true;
+      });
+      renderizarArbol(res);
+    }
+    
+    function getTipoPieza(nombreArchivo) {
+      const nombre = nombreArchivo.replace(/\.dwg$/i, '').replace(/\.bak/i, '');
+      const match = nombre.match(/\d+\s+(\d{2,3})/);
+      if(match) {
+        let codigo = match[1];
+        if(codigo.length === 2) codigo = '0' + codigo;
+        return codigo;
+      }
+      return null;
+    }
+    
+    function filtrarPorTipoPieza() {
+      aplicarFiltrosYBusqueda();
+    }
+ 
+    function renderizarArbol(planosFiltrados) {
+      const cnt = document.getElementById('tree-container');
+     
+      if(planosFiltrados.length === 0) {
+        cnt.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted)">0 resultados encontrados</div>`;
+        return;
+      }
+ 
+      const arbol = {};
+      planosFiltrados.forEach(p => {
+        if(!arbol[p._carpetaNormalizada]) arbol[p._carpetaNormalizada] = [];
+        arbol[p._carpetaNormalizada].push(p);
+      });
+ 
+      let html = '';
+      Object.keys(arbol).sort().forEach(carpeta => {
+        const archivos = arbol[carpeta];
+        html += `
+          <div class="folder-group open">
+            <div class="folder-title" onclick="this.parentElement.classList.toggle('open')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" title="${carpeta}">${carpeta.split('\\').pop() || carpeta}</span>
+              <span style="font-size:11px; background:var(--border-light); padding:2px 6px; border-radius:10px">${archivos.length}</span>
+            </div>
+            <div class="folder-items">
+              ${archivos.map(arc => `
+                <div class="file-card" id="file-${arc._idxOriginal}" onclick="seleccionarArchivo(${arc._idxOriginal})">
+                  <div class="file-name">${arc.archivo}</div>
+                  <div class="file-meta">
+                    <span class="status-badge ${arc._tieneDatos ? 'status-ok' : 'status-err'}">
+                      ${arc._tieneDatos ? '✓ ' + arc.tablas.length + ' Tablas' : '⚠ Vacio'}
+                    </span>
+                    <span style="color:var(--text-muted)">P. ${arc._piezaNormalizada}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      });
+      cnt.innerHTML = html;
+    }
+ 
+    function seleccionarArchivo(idx) {
+      document.querySelectorAll('.file-card').forEach(el => el.classList.remove('active'));
+      const el = document.getElementById(`file-${idx}`);
+      if(el) el.classList.add('active');
+ 
+      const plano = estado.planosValidos.find(p => p._idxOriginal === idx);
+      renderBento(plano);
+    }
+ 
+    function renderBento(plano) {
+      const cnt = document.getElementById('detalles-container');
+      if(!plano) return;
+ 
+      const tieneQ = plano.cajetines && plano.cajetines.length > 0;
+      const totalTablas = tieneQ ? plano.cajetines.length : (plano.tablas ? plano.tablas.length : 0);
+ 
+      const metadataHtml = `
+        <div class="bento-card bento-general">
+          <div class="bento-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Data General
+          </div>
+          <div class="data-row">
+            <span class="data-label">Nombre del Archivo</span>
+            <span class="data-value">${plano.archivo}</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Identificador Pieza</span>
+            <span class="data-value">${plano._piezaNormalizada}</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Zonas T\u00e9cnicas</span>
+            <span class="data-value" style="color:var(--agp-teal)">${totalTablas} detectadas</span>
+          </div>
+        </div>
+        <div class="bento-card bento-info">
+          <div class="bento-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Metadatos Extendidos
+          </div>
+          <div class="data-row">
+            <span class="data-label">Ruta de Origen</span>
+            <span class="data-value" style="font-size:12px; font-family:monospace; word-break:break-all">${plano.ruta || plano.carpeta}</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Estado de Mapeo</span>
+            <span class="data-value">${plano._tieneDatos ? '\uD83D\uDFE2 Extracci\u00f3n Exitosa' : (plano.error ? '\uD83D\uDD34 Error: ' + plano.error : '\uD83D\uDFE0 Sin bloque objetivo')}</span>
+          </div>
+          ${tieneQ ? `<div class="data-row"><span class="data-label">Organización</span><span class="data-value">\uD83D\uDCD0 ${contarCuadrantes(plano.cajetines)} zonas ocupadas</span></div>` : ''}
+        </div>
+      `;
+ 
+      let bodyHtml = '';
+      if (tieneQ) {
+        const porQ = { Arriba: [], Izquierda: [], Derecha: [], Abajo: [] };
+        plano.cajetines.forEach(c => { if(porQ[c.cuadrante]) porQ[c.cuadrante].push(c); else porQ['Arriba'].push(c); });
+        Object.values(porQ).forEach(arr => arr.sort((a, b) => a.orden - b.orden));
+       
+        const qLabels = {
+            Arriba: {name:'Zona Superior', icon:'\u2B06', class:'q-top'},
+            Izquierda: {name:'Zona Izquierda', icon:'\u2B05', class:'q-left'},
+            Derecha: {name:'Zona Derecha', icon:'\u27A1', class:'q-right'},
+            Abajo: {name:'Zona Inferior', icon:'\u2B07', class:'q-bottom'}
+        };
+       
+        bodyHtml = `<div class="cross-layout">`;
+        ['Arriba','Izquierda','Derecha','Abajo'].forEach(q => {
+          const items = porQ[q], meta = qLabels[q];
+          bodyHtml += `<div class="cross-zone ${meta.class}" data-q="${q}">
+                         <div class="q-label">
+                           <span class="q-badge q-badge-${q}">${meta.icon}</span>
+                           <div>
+                             <div class="q-title">${q}</div>
+                             <div class="q-subtitle">${meta.name}</div>
+                           </div>
+                           <span class="q-count">${items.length} tabla${items.length!==1?'s':''}</span>
+                         </div>`;
+          if(!items.length) { bodyHtml += `<div class="q-empty">Sin tablas aquí</div>`; }
+          else { items.forEach(zona => {
+            const campos = zona.campos_detectados || [];
+            let camposHtml = '';
+            campos.forEach((c) => {
+              const traz = c.trazabilidad || {};
+              const orig = traz.bloque_origen ? `${traz.bloque_origen}.${traz.tag_origen}` : '';
+              camposHtml += `<div class="cajetin-attr" title="Origen: ${orig} @ (${traz.posicion?.x?.toFixed(1) || '?'}, ${traz.posicion?.y?.toFixed(1) || '?'})">
+                                <span class="cajetin-key">${c.campo}</span>
+                                <span class="cajetin-val">${c.valor}</span>
+                             </div>`;
+            });
+            bodyHtml += `<div class="cajetin-card">
+                           <div class="cajetin-header">
+                             <span class="cajetin-orden">${zona.orden}</span>Tabla Técnica
+                             <span style="font-weight:400;color:var(--text-muted);font-size:11px;margin-left:auto;">(${campos.length} campos)</span>
+                           </div>
+                           ${camposHtml}
+                         </div>`;
+          }); }
+          bodyHtml += `</div>`;
+        });
+        bodyHtml += `</div>`;
+      } else if(plano.tablas && plano.tablas.length > 0) {
+        bodyHtml = `<div class="bento-grid" style="margin-top:24px">`;
+        plano.tablas.forEach((t, i) => {
+          bodyHtml += `<div class="bento-card bento-table"><div class="bento-title"><span class="table-index">${i+1}</span>${t.bloque||'Bloque T\u00e9cnico'}</div>${Object.entries(t.atributos||{}).map(([k,v])=>`<div class="data-row"><span class="data-label">${k}</span><span class="data-value">${v}</span></div>`).join('')}</div>`;
+        });
+        bodyHtml += `</div>`;
+      }
+      
+      // Agregar imágenes si existen
+      let imagenesHtml = '';
+      if(plano.imagenes && plano.imagenes.length > 0) {
+        imagenesHtml = `
+          <div class="bento-card" style="grid-column: span 12; margin-top: 24px;">
+            <div class="bento-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Previsualizaciones (${plano.imagenes.length})
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              ${plano.imagenes.map(img => {
+                let ruta = img.replace(/\\192\.168\.2\.2/, '').replace(/\\Sapfiles\\PlanosSapProduccion\\?/, '').replace(/\\/g, '/');
+                ruta = '/Z/' + ruta;
+                return `<img src="${ruta}" style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; border: 2px solid var(--border-light); cursor: pointer;" onclick="verImagenAmpliada('${ruta}')" onerror="this.style.display='none'" title="Click para ampliar">`;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+ 
+      cnt.innerHTML = `
+        <div class="bento-grid">
+          <div class="bento-card bento-header">
+            <div class="file-main-title">${plano.archivo}</div>
+            <div class="file-sub-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              ${plano._carpetaNormalizada}
+            </div>
+          </div>
+          ${metadataHtml}
+        </div>
+        ${bodyHtml}
+        ${imagenesHtml}
+      `;
+    }
+    
+    function verImagenAmpliada(src) {
+      document.getElementById('modal-img').src = src;
+      document.getElementById('modal').classList.add('active');
+    }
+    
+    function cerrarModal() {
+      document.getElementById('modal').classList.remove('active');
+    }
+ 
+    function contarCuadrantes(cajetines) { return new Set(cajetines.map(c => c.cuadrante)).size; }
+ 
+    function descargarExcel() {
+      if (datasetActualInfo && datasetActualInfo.excel_url) {
+        window.open(datasetActualInfo.excel_url, '_blank');
+      } else {
+        alert('No hay archivo Excel disponible para este dataset.');
+      }
+    }
+ 
+    function mostrarLoader(state) {
+      document.getElementById('loader').classList.toggle('active', state);
+    }
+ 
+    window.onload = inicializarDatasets;
+  </script>
+</body>
+</html>
