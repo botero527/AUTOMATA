@@ -20,3 +20,5 @@ if __name__ == "__main__":
     print(f"  Ctrl+C para detener\n")
     webbrowser.open(url)
     app.run(host=WEB_HOST, port=WEB_PORT, debug=False, threaded=True)
+
+
