@@ -1385,15 +1385,19 @@ async function selectPlano(plano) {
 }
 
 function loadPlanoImage(data) {
-  if (!data.render || !data.render.png) {
+  // Soporta render.png_url (nuevo, desde DB) y render.png (legacy JSON)
+  const render = data.render || {};
+  const imgSrc = render.png_url
+    || (render.png ? `/renders/${encodeURIComponent(render.png.split('\\').pop().split('/').pop())}` : null);
+
+  if (!imgSrc) {
     hideLoading();
     emptyState.classList.remove('hidden');
     emptyState.querySelector('.empty-label').textContent = 'Sin imagen renderizada';
     return;
   }
 
-  const filename = data.render.png.split('\\').pop().split('/').pop();
-  planoImg.src = `/renders/${encodeURIComponent(filename)}`;
+  planoImg.src = imgSrc;
 
   planoImg.onload = () => {
     hideLoading();

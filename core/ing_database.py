@@ -476,9 +476,10 @@ def get_plano_completo(vehiculo: str, carpeta: str, archivo: str) -> dict | None
             "pieza_nombre": row[2],
             "cajetines":    cajetines,
             "render": {
+                "png":        render_path,
                 "png_url":    f"/renders/{render_filename}" if render_filename else None,
-                "width_px":  row[8],
-                "height_px": row[9],
+                "width_px":   row[8],
+                "height_px":  row[9],
                 "dxf_bounds": dxf_bounds,
             },
             "imagenes_sap": imagenes_sap,
