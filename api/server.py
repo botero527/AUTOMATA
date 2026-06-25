@@ -241,6 +241,16 @@ def sap_image():
     return send_file(str(p), mimetype="image/jpeg")
 
 
+@app.route("/api/similares/<int:plano_id>")
+def api_similares(plano_id):
+    """Retorna los planos más similares al dado. ?top=10&mismo_vehiculo=0"""
+    from core.comparator import buscar_similares
+    top             = int(request.args.get("top", 10))
+    mismo_vehiculo  = request.args.get("mismo_vehiculo", "0") == "1"
+    resultados = buscar_similares(plano_id, top_n=top, mismo_vehiculo=mismo_vehiculo)
+    return jsonify(resultados)
+
+
 @app.route("/api/indexar/<vehiculo>", methods=["POST"])
 def api_indexar_vehiculo(vehiculo):
     """Dispara el indexado de un vehículo en background."""
