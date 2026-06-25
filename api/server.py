@@ -241,12 +241,49 @@ def sap_image():
     return send_file(str(p), mimetype="image/jpeg")
 
 
+@app.route("/api/indexar/<vehiculo>", methods=["POST"])
+def api_indexar_vehiculo(vehiculo):
+    """Dispara el indexado de un vehículo en background."""
+    import threading
+    from core.indexer import index_vehiculo
+    force = request.args.get("force", "0") == "1"
+
+    def _run():
+        log.info("Indexado iniciado: %s (force=%s)", vehiculo, force)
+        result = index_vehiculo(vehiculo, force=force)
+        log.info("Indexado completado %s: %s", vehiculo, result)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"mensaje": f"Indexado iniciado para '{vehiculo}'", "force": force})
+
+
+@app.route("/api/indexar/estado/<vehiculo>")
+def api_indexar_estado(vehiculo):
+    """Cuántos planos hay en DB para un vehículo, agrupado por estado."""
+    from core.ing_database import _get_connection
+    conn = _get_connection()
+    if not conn:
+        return jsonify({"error": "Sin conexion a DB"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ESTADO, COUNT(*) FROM [AUTOMATA].[PLANOS]
+            WHERE VEHICULO=? GROUP BY ESTADO
+        """, vehiculo)
+        rows = cursor.fetchall()
+        return jsonify({r[0]: r[1] for r in rows})
+    finally:
+        conn.close()
+
+
 @app.route("/api/status")
 def api_status():
     from core.database import test_connection
+    from core.ing_database import test_connection as test_ing
     return jsonify({
         "servidor_red": NETWORK_BASE_PATH.exists(),
         "sap_db": test_connection(),
+        "ing_db": test_ing(),
         "oda": Path(str(__import__("config.settings", fromlist=["ODA_PATH"]).ODA_PATH)).exists(),
     })
 
