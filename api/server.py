@@ -35,12 +35,43 @@ WEB_DIR = Path(__file__).parent.parent / "web"
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
 
+# Patrones de carpetas administrativas a excluir
+_EXCLUDE_PATTERNS = re.compile(
+    r"^(\d{2}-|Z[ZV]|AGP|ARCHIVOS|CARGUE|CONSECUTIVO|CORTE|DESARROLLOS|"
+    r"ESCANER|ESTANDARES|FORMATO|FORMULAS|HZJ|INFORMES|LIBERACIONES|MESA|"
+    r"PASATA|PASTA|PERU|PLANOS 3D|PLANTILLAS|PROY|PROYECTO|PVTE|RP2|"
+    r"SOPORTE|STRIP|VINILOS|Backup|Nueva|OneDrive|Users|prueba|proyecto|"
+    r"12mm|AAA|AG$|L$|n$|PJ$|NMI|ZPRO|Premium|Pedidos)",
+    re.IGNORECASE
+)
+
+def _tiene_dwgs(folder: Path) -> bool:
+    """Verifica rápido si una carpeta tiene DWGs en algún nivel (máx 2 niveles)."""
+    try:
+        for sub in folder.iterdir():
+            if sub.suffix.lower() == ".dwg":
+                return True
+            if sub.is_dir():
+                if any(True for _ in sub.glob("*.dwg")):
+                    return True
+    except Exception:
+        pass
+    return False
+
+
 def get_vehiculos() -> list[str]:
     try:
-        return sorted([
-            d.name for d in NETWORK_BASE_PATH.iterdir()
-            if d.is_dir() and not d.name.startswith(".")
-        ])
+        vehiculos = []
+        for d in sorted(NETWORK_BASE_PATH.iterdir()):
+            if not d.is_dir():
+                continue
+            if d.name.startswith("."):
+                continue
+            if _EXCLUDE_PATTERNS.match(d.name):
+                continue
+            if _tiene_dwgs(d):
+                vehiculos.append(d.name)
+        return vehiculos
     except Exception as e:
         log.error("Error listando vehículos: %s", e)
         return []

@@ -173,6 +173,16 @@ body {
   flex-shrink: 0;
 }
 
+/* La sección de vehículos puede crecer pero tiene scroll propio */
+.sidebar-section.vehicles {
+  flex-shrink: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 45%;
+}
+
 .section-label {
   font-size: 9px;
   font-weight: 600;
@@ -180,13 +190,19 @@ body {
   text-transform: uppercase;
   color: var(--text-3);
   margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .vehicle-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
+
+.vehicle-grid::-webkit-scrollbar { width: 3px; }
+.vehicle-grid::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
 
 .vehicle-btn {
   background: var(--bg);
@@ -200,6 +216,7 @@ body {
   letter-spacing: 0.04em;
   transition: all 0.15s;
   white-space: nowrap;
+  height: fit-content;
 }
 
 .vehicle-btn:hover {
@@ -853,7 +870,7 @@ body {
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
-    <div class="sidebar-section">
+    <div class="sidebar-section vehicles">
       <div class="section-label">Vehículo</div>
       <div class="vehicle-grid" id="vehicle-grid">
         <div style="color:var(--text-3);font-size:11px;">Cargando...</div>
