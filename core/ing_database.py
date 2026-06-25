@@ -468,6 +468,7 @@ def get_plano_completo(vehiculo: str, carpeta: str, archivo: str) -> dict | None
         render_filename = Path(render_path).name if render_path else ""
 
         return {
+            "plano_id":     plano_id,
             "archivo":      archivo,
             "vehiculo":     vehiculo,
             "carpeta":      carpeta,

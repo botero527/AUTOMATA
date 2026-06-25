@@ -744,6 +744,45 @@ body {
   cursor: default;
 }
 
+/* ── Similares ───────────────────────────────── */
+.similares-btn {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; padding: 8px 12px;
+  background: rgba(139,92,246,0.08);
+  border: 1px solid rgba(139,92,246,0.3);
+  border-radius: var(--radius-sm);
+  color: #a78bfa; font-size: 11px; font-family: var(--sans);
+  letter-spacing: 0.04em; cursor: pointer; transition: all 0.15s;
+}
+.similares-btn:hover { background: rgba(139,92,246,0.16); border-color: #a78bfa; }
+.similares-btn:disabled { opacity: 0.4; cursor: default; }
+.similares-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.similar-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  cursor: pointer; transition: border-color 0.15s;
+}
+.similar-card:hover { border-color: var(--accent-dim); }
+.similar-card-top {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;
+}
+.similar-score {
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.similar-score.high  { color: #34d399; }
+.similar-score.mid   { color: #fbbf24; }
+.similar-score.low   { color: #f87171; }
+.similar-vehiculo { font-size: 10px; color: var(--text-3); }
+.similar-archivo  { font-size: 11px; color: var(--text-2); margin-bottom: 4px;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.similar-bars { display: flex; gap: 3px; }
+.similar-bar-wrap { flex: 1; }
+.similar-bar-label { font-size: 9px; color: var(--text-3); margin-bottom: 2px; }
+.similar-bar-track { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.similar-bar-fill  { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s; }
+.similares-loading { font-size: 11px; color: var(--text-3); padding: 8px 0; text-align: center; }
+
 /* Modal de imagen SAP */
 .img-modal {
   display: none;
@@ -1090,6 +1129,7 @@ const state = {
   overlaysVisible: true,
   renderInfo: null,
   imagenesSap: [],
+  planoId: null,
 };
 
 // ═══════════════════════════════════════════════
@@ -1331,6 +1371,7 @@ async function selectPlano(plano) {
     state.cajetines = data.cajetines || [];
     state.renderInfo = data.render || {};
     state.imagenesSap = data.imagenes_sap || [];
+    state.planoId = data.plano_id || null;
     state.selectedCajetin = null;
 
     // Load the rendered image
@@ -1624,6 +1665,84 @@ function showAllCajetines() {
     noImg.disabled = true;
     noImg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Plano no disponible en SAP`;
     detailBody.appendChild(noImg);
+  }
+
+  // Sección similares
+  const simLabel = document.createElement('div');
+  simLabel.className = 'field-section-label';
+  simLabel.textContent = 'Planos similares';
+  detailBody.appendChild(simLabel);
+
+  const simContainer = document.createElement('div');
+  simContainer.id = 'similares-container';
+
+  if (state.planoId) {
+    const simBtn = document.createElement('button');
+    simBtn.className = 'similares-btn';
+    simBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar planos similares`;
+    simBtn.addEventListener('click', () => cargarSimilares(state.planoId, simContainer, simBtn));
+    simContainer.appendChild(simBtn);
+  } else {
+    simContainer.innerHTML = '<div class="similares-loading">Plano no indexado aún — indexar primero para comparar</div>';
+  }
+  detailBody.appendChild(simContainer);
+}
+
+// ═══════════════════════════════════════════════
+//  SIMILARES
+// ═══════════════════════════════════════════════
+async function cargarSimilares(planoId, container, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Buscando...';
+  container.innerHTML = '<div class="similares-loading">Calculando similitud...</div>';
+
+  try {
+    const res = await fetch(`/api/similares/${planoId}?top=8`);
+    const data = await res.json();
+
+    container.innerHTML = '';
+    if (!data.length) {
+      container.innerHTML = '<div class="similares-loading">No se encontraron planos similares indexados</div>';
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'similares-list';
+
+    data.forEach(s => {
+      const pct = Math.round(s.score_total * 100);
+      const scoreClass = pct >= 70 ? 'high' : pct >= 40 ? 'mid' : 'low';
+
+      const card = document.createElement('div');
+      card.className = 'similar-card';
+      card.innerHTML = `
+        <div class="similar-card-top">
+          <span class="similar-score ${scoreClass}">${pct}%</span>
+          <span class="similar-vehiculo">${s.vehiculo}</span>
+        </div>
+        <div class="similar-archivo">${s.archivo}</div>
+        <div class="similar-bars">
+          ${[['Caj', s.score_cajetines], ['Rad', s.score_radios], ['Cot', s.score_cotas], ['Geo', s.score_geometria]].map(([lbl, v]) => `
+            <div class="similar-bar-wrap">
+              <div class="similar-bar-label">${lbl} ${Math.round(v*100)}%</div>
+              <div class="similar-bar-track"><div class="similar-bar-fill" style="width:${Math.round(v*100)}%"></div></div>
+            </div>`).join('')}
+        </div>
+      `;
+      // Click → abrir ese plano
+      card.addEventListener('click', () => {
+        const planoInfo = state.planos.find(p => p.archivo === s.archivo && p.vehiculo === s.vehiculo);
+        if (planoInfo) {
+          selectPlano(planoInfo);
+        }
+      });
+      list.appendChild(card);
+    });
+
+    container.appendChild(list);
+  } catch (e) {
+    container.innerHTML = '<div class="similares-loading">Error al buscar similares</div>';
+    console.error(e);
   }
 }
 

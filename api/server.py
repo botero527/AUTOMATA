@@ -173,7 +173,13 @@ def api_plano(vehiculo, carpeta_path, archivo):
     stem      = _safe_stem(vehiculo, carpeta, dwg_path.stem)
     data_file = DATA_DIR / (stem + ".json")
 
-    # Usar caché si existe
+    # Usar caché DB primero (fuente de verdad)
+    from core.ing_database import get_plano_completo
+    db_data = get_plano_completo(vehiculo, carpeta, archivo)
+    if db_data:
+        return jsonify(db_data)
+
+    # Fallback: JSON cache legacy
     if data_file.exists():
         with open(data_file, encoding="utf-8") as f:
             data = json.load(f)
