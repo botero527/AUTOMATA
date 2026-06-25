@@ -9,27 +9,29 @@ venv/
 dist/
 build/
 
-# Archivos de datos grandes
-output/
+# Entorno — NUNCA al repo
+.env
 
-# Imágenes grandes
-*.png
-*.jpg
-*.jpeg
-*.gif
+# Outputs generados (se crean al ejecutar)
+output/renders/
+output/dxf/
+output/data/
+output/*.json
+output/*.xlsx
 
-# Excel temporal
-*.xlsx~
-*.xls~
+# Archivos de prueba/temp
+test_render.png
+*.tmp
 
 # Sistema
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Archivos de ODA (Output)
-*.dwg
-*.dxf
-*.bin
+# IDE
+.vscode/settings.json
+.idea/
 
-# Logs
+# Logs & cache
 *.log
+.planos_cache.json
