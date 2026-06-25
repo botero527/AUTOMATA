@@ -44,15 +44,21 @@ def _hash_file(path: Path, chunk=65536) -> str:
 def _parse_pieza_cod(filename: str) -> str | None:
     """
     Extrae código de pieza del nombre del archivo.
-    '1761 006 005 A.dwg' → '005'
-    '1761 006 05 A.dwg'  → '005'  (zero-pad a 3 dígitos)
+    '1761 006 005 A.dwg'    → '005'
+    '1761 006 05 A.dwg'     → '005'  (zero-pad a 3 dígitos)
+    'CR 1576 000 007-008 B' → '008'  (último grupo ≤ 3 dígitos)
+    Ignora números > 999 (son doc numbers, no pieza).
     """
     stem = re.sub(r"\.(dwg|dxf)$", "", filename, flags=re.IGNORECASE).strip()
-    stem = re.sub(r"\s+[A-Z]$", "", stem).strip()   # quitar revisión final
-    parts = re.findall(r"\d+", stem)
-    if len(parts) < 2:
+    stem = re.sub(r"\s+[A-Z]{1,2}$", "", stem).strip()   # quitar revisión final
+    # Tomar grupos de 1-3 dígitos (pieza nunca tiene 4+ dígitos)
+    parts = re.findall(r"\b(\d{1,3})\b", stem)
+    if not parts:
         return None
-    return parts[-1].zfill(3)
+    # Si hay varios, el último que no sea el primero (doc number suele ser el primero largo)
+    # Filtramos el primero si hay más de uno
+    candidates = parts[1:] if len(parts) > 1 else parts
+    return candidates[-1].zfill(3)
 
 
 def _parse_carpeta_parts(vehiculo: str, carpeta: str) -> tuple:
