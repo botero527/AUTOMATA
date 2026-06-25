@@ -1,9 +1,9 @@
 """
 Conexión a la base de datos SAP para buscar imágenes asociadas a planos.
+Columnas reales: DOCUMENTO (ej: 'M1761 006 005 A'), PLANO (ruta UNC del JPG)
 """
 import re
 import logging
-from functools import lru_cache
 
 from config.settings import SAP_SERVER, SAP_DATABASE, SAP_USER, SAP_PASSWORD, SAP_DRIVER
 
@@ -30,23 +30,25 @@ def _get_connection():
 
 def _parse_doc_number(filename: str) -> str | None:
     """
-    Extrae el número de documento del nombre del archivo.
-    Ej: '1754 000 000 A.dwg' → 'M1754000000A'
+    Construye el código de documento SAP desde el nombre del DWG.
+    Ej: '1761 006 005 A.dwg' → buscar con DOCUMENTO LIKE '%1761 006 005%'
+    El campo DOCUMENTO en SAP tiene formato 'M1761 006 005 A' (con M inicial y espacios).
     """
-    stem = re.sub(r"\.(dwg|dxf)$", "", filename, flags=re.IGNORECASE)
-    digits = re.findall(r"\d+", stem)
-    if not digits:
-        return None
-    return "M" + "".join(digits)
+    stem = re.sub(r"\.(dwg|dxf)$", "", filename, flags=re.IGNORECASE).strip()
+    # Quitar letra de revisión final si existe (A, B, C...)
+    # Ej: '1761 006 005 A' → buscar '1761 006 005'
+    stem_no_rev = re.sub(r"\s+[A-Z]$", "", stem).strip()
+    return stem_no_rev if stem_no_rev else None
 
 
-def buscar_imagenes(filename: str) -> list[str]:
+def buscar_imagenes(filename: str) -> list[dict]:
     """
-    Busca todas las imágenes en SAP asociadas a un archivo DWG.
-    Retorna lista de rutas de imagen (strings).
+    Busca imágenes en SAP para un archivo DWG.
+    Retorna lista de dicts: {documento, plano, plano_url}
+    plano_url es la ruta convertida para el endpoint /sap-image
     """
-    doc_num = _parse_doc_number(filename)
-    if not doc_num:
+    doc_query = _parse_doc_number(filename)
+    if not doc_query:
         return []
 
     conn = _get_connection()
@@ -56,14 +58,26 @@ def buscar_imagenes(filename: str) -> list[str]:
     try:
         cursor = conn.cursor()
         query = """
-            SELECT RUTA_JPG
+            SELECT DOCUMENTO, PLANO
             FROM [dbo].[ODATA_ZFER_RUTAS_JPG]
-            WHERE DOCUMENT_NUMBER LIKE ?
-            ORDER BY RUTA_JPG
+            WHERE DOCUMENTO LIKE ?
+            ORDER BY DOCUMENTO
         """
-        cursor.execute(query, f"%{doc_num}%")
+        cursor.execute(query, f"%{doc_query}%")
         rows = cursor.fetchall()
-        return [row[0] for row in rows if row[0]]
+        results = []
+        for doc, plano in rows:
+            if not plano:
+                continue
+            # Construir URL para el proxy local
+            plano_url = f"/sap-image?ruta={plano}"
+            results.append({
+                "documento": doc,
+                "plano":     plano,
+                "plano_url": plano_url,
+            })
+        log.info("SAP: %d imagen(es) para '%s'", len(results), doc_query)
+        return results
     except Exception as e:
         log.error("Error consultando SAP para %s: %s", filename, e)
         return []
@@ -72,7 +86,6 @@ def buscar_imagenes(filename: str) -> list[str]:
 
 
 def test_connection() -> bool:
-    """Verifica si la conexión SAP funciona."""
     conn = _get_connection()
     if conn:
         conn.close()

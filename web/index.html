@@ -719,22 +719,108 @@ body {
   margin-top: 4px;
 }
 
-.sap-img-row {
+.sap-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  gap: 7px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(0,184,217,0.07);
+  border: 1px solid var(--accent-dim);
   border-radius: var(--radius-sm);
-  font-size: 10px;
-  color: var(--text-2);
+  color: var(--accent);
+  font-size: 11px;
+  font-family: var(--sans);
+  letter-spacing: 0.04em;
   cursor: pointer;
-  text-decoration: none;
   transition: all 0.15s;
+  margin-bottom: 4px;
+}
+.sap-btn:hover { background: rgba(0,184,217,0.14); border-color: var(--accent); }
+.sap-btn.no-img {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-3);
+  cursor: default;
 }
 
-.sap-img-row:hover { border-color: var(--accent-dim); color: var(--accent); }
+/* Modal de imagen SAP */
+.img-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.88);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+.img-modal.open { display: flex; }
+
+.img-modal-inner {
+  position: relative;
+  max-width: 92vw;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.img-modal img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 4px;
+  border: 1px solid var(--border-2);
+  display: block;
+}
+
+.img-modal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.img-modal-label {
+  font-size: 10px;
+  color: var(--text-2);
+  letter-spacing: 0.06em;
+  font-family: var(--mono);
+}
+
+.img-modal-close {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--sans);
+  transition: all 0.13s;
+}
+.img-modal-close:hover { color: var(--text); border-color: var(--border); }
+
+.img-modal-loading {
+  color: var(--text-2);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.img-modal-spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
 
 /* All cajetines list */
 .cajetines-list {
@@ -975,6 +1061,21 @@ body {
 
 </div>
 
+<!-- MODAL IMAGEN SAP -->
+<div class="img-modal" id="img-modal">
+  <div class="img-modal-inner">
+    <div class="img-modal-loading" id="img-modal-loading">
+      <div class="img-modal-spinner"></div>
+      <span>Cargando imagen desde SAP...</span>
+    </div>
+    <img id="img-modal-img" src="" alt="" style="display:none">
+    <div class="img-modal-bar">
+      <span class="img-modal-label" id="img-modal-label"></span>
+      <button class="img-modal-close" id="img-modal-close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════
 //  STATE
@@ -988,6 +1089,7 @@ const state = {
   zoom: 1,
   overlaysVisible: true,
   renderInfo: null,
+  imagenesSap: [],
 };
 
 // ═══════════════════════════════════════════════
@@ -1228,6 +1330,7 @@ async function selectPlano(plano) {
 
     state.cajetines = data.cajetines || [];
     state.renderInfo = data.render || {};
+    state.imagenesSap = data.imagenes_sap || [];
     state.selectedCajetin = null;
 
     // Load the rendered image
@@ -1499,7 +1602,64 @@ function showAllCajetines() {
   });
 
   detailBody.appendChild(list);
+
+  // SAP images section
+  const sapLabel = document.createElement('div');
+  sapLabel.className = 'field-section-label';
+  sapLabel.textContent = 'Plano SAP';
+  detailBody.appendChild(sapLabel);
+
+  if (state.imagenesSap && state.imagenesSap.length > 0) {
+    state.imagenesSap.forEach(img => {
+      const btn = document.createElement('button');
+      btn.className = 'sap-btn';
+      const docName = img.documento || img.plano?.split('\\').pop() || 'Ver imagen';
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> ${docName}`;
+      btn.addEventListener('click', () => openSapModal(img.plano_url, docName));
+      detailBody.appendChild(btn);
+    });
+  } else {
+    const noImg = document.createElement('button');
+    noImg.className = 'sap-btn no-img';
+    noImg.disabled = true;
+    noImg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Plano no disponible en SAP`;
+    detailBody.appendChild(noImg);
+  }
 }
+
+// ═══════════════════════════════════════════════
+//  SAP IMAGE MODAL
+// ═══════════════════════════════════════════════
+const imgModal      = $('img-modal');
+const imgModalImg   = $('img-modal-img');
+const imgModalLabel = $('img-modal-label');
+const imgModalClose = $('img-modal-close');
+const imgModalLoad  = $('img-modal-loading');
+
+function openSapModal(url, label) {
+  imgModalLabel.textContent = label || '';
+  imgModalImg.style.display = 'none';
+  imgModalLoad.style.display = 'flex';
+  imgModal.classList.add('open');
+
+  imgModalImg.onload = () => {
+    imgModalLoad.style.display = 'none';
+    imgModalImg.style.display = 'block';
+  };
+  imgModalImg.onerror = () => {
+    imgModalLoad.innerHTML = '<span style="color:var(--accent-warn,#f59e0b);">No se pudo cargar la imagen desde SAP</span>';
+  };
+  imgModalImg.src = url;
+}
+
+function closeSapModal() {
+  imgModal.classList.remove('open');
+  imgModalImg.src = '';
+}
+
+imgModalClose.addEventListener('click', closeSapModal);
+imgModal.addEventListener('click', e => { if (e.target === imgModal) closeSapModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSapModal(); });
 
 // ═══════════════════════════════════════════════
 //  ZOOM
