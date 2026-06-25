@@ -45,15 +45,22 @@ _EXCLUDE_PATTERNS = re.compile(
     re.IGNORECASE
 )
 
+_SKIP_FOLDERS = re.compile(
+    r"^(3D|ACERO|ARTES|ARCHIVOS|DESARROLLO|DIGITALIZACION|ESCANEADO|GALGAS|"
+    r"GALGA|INFO|INFORMACION|OBSOLETO|obsoletos|PLANOS PERU|PLANOS PER|"
+    r"PREMIUM EDGE|PROPUESTA|PRUEBA|PVTE|RHINO|SUPERFICIES|Nueva carpeta|"
+    r"Pedidos|OneDrive|BAE|PBS|ACERO|PLANTILLAS|BRAZO)",
+    re.IGNORECASE
+)
+
 def _tiene_dwgs(folder: Path) -> bool:
-    """Verifica rápido si una carpeta tiene DWGs en algún nivel (máx 2 niveles)."""
+    """Verifica rápido si una carpeta tiene DWGs en cualquier subnivel."""
     try:
-        for sub in folder.iterdir():
-            if sub.suffix.lower() == ".dwg":
-                return True
-            if sub.is_dir():
-                if any(True for _ in sub.glob("*.dwg")):
-                    return True
+        # rglob es la forma más sencilla — paramos al primer match
+        for _ in folder.rglob("*.dwg"):
+            return True
+        for _ in folder.rglob("*.DWG"):
+            return True
     except Exception:
         pass
     return False
@@ -63,9 +70,7 @@ def get_vehiculos() -> list[str]:
     try:
         vehiculos = []
         for d in sorted(NETWORK_BASE_PATH.iterdir()):
-            if not d.is_dir():
-                continue
-            if d.name.startswith("."):
+            if not d.is_dir() or d.name.startswith("."):
                 continue
             if _EXCLUDE_PATTERNS.match(d.name):
                 continue
@@ -77,27 +82,54 @@ def get_vehiculos() -> list[str]:
         return []
 
 
+def _walk_dwgs(base: Path, vehiculo: str, rel_parts: list[str] = None) -> list[dict]:
+    """
+    Recorre recursivamente buscando DWGs.
+    Retorna lista de planos con ruta completa relativa como carpeta_path.
+    Ignora subcarpetas de soporte (3D, ARTES, DESARROLLO, etc.)
+    """
+    if rel_parts is None:
+        rel_parts = []
+
+    results = []
+    try:
+        entries = sorted(base.iterdir(), key=lambda x: x.name)
+    except Exception:
+        return results
+
+    # DWGs directamente en esta carpeta
+    for f in entries:
+        if f.is_file() and f.suffix.lower() == ".dwg":
+            carpeta_path = "/".join(rel_parts) if rel_parts else "(raíz)"
+            code_match = re.search(r"(\d{3})", f.stem)
+            tipo = PIECE_TYPES.get(code_match.group(1), "") if code_match else ""
+            results.append({
+                "archivo":       f.name,
+                "carpeta":       carpeta_path,          # ruta relativa completa
+                "carpeta_parts": rel_parts.copy(),      # para árbol jerárquico
+                "vehiculo":      vehiculo,
+                "tipo":          tipo,
+                "stem":          f.stem,
+            })
+
+    # Subcarpetas — recursión
+    for f in entries:
+        if not f.is_dir():
+            continue
+        if _SKIP_FOLDERS.match(f.name):
+            continue
+        results.extend(_walk_dwgs(f, vehiculo, rel_parts + [f.name]))
+
+    return results
+
+
 def get_planos(vehiculo: str) -> list[dict]:
     base = NETWORK_BASE_PATH / vehiculo
-    planos = []
     try:
-        for carpeta in sorted(base.iterdir()):
-            if not carpeta.is_dir():
-                continue
-            for dwg in sorted(carpeta.glob("*.dwg")):
-                stem = dwg.stem
-                code_match = re.search(r"(\d{3})", stem)
-                tipo = PIECE_TYPES.get(code_match.group(1), "Desconocido") if code_match else "Desconocido"
-                planos.append({
-                    "archivo":  dwg.name,
-                    "carpeta":  carpeta.name,
-                    "vehiculo": vehiculo,
-                    "tipo":     tipo,
-                    "stem":     stem,
-                })
+        return _walk_dwgs(base, vehiculo)
     except Exception as e:
         log.error("Error listando planos de %s: %s", vehiculo, e)
-    return planos
+        return []
 
 
 def _safe_stem(vehiculo: str, carpeta: str, archivo: str) -> str:
@@ -126,11 +158,17 @@ def api_planos(vehiculo):
     return jsonify(get_planos(vehiculo))
 
 
-@app.route("/api/plano/<vehiculo>/<carpeta>/<archivo>")
-def api_plano(vehiculo, carpeta, archivo):
-    dwg_path = NETWORK_BASE_PATH / vehiculo / carpeta / archivo
+@app.route("/api/plano/<vehiculo>/<path:carpeta_path>/<archivo>")
+def api_plano(vehiculo, carpeta_path, archivo):
+    # carpeta_path puede ser "MODELO/VERSION" o solo "VERSION"
+    # En la red, "/" separa carpetas reales
+    dwg_path = NETWORK_BASE_PATH / vehiculo / Path(carpeta_path.replace("/", "\\")) / archivo
     if not dwg_path.exists():
-        abort(404, f"Archivo no encontrado: {dwg_path}")
+        # Intentar también con la carpeta directamente (DWGs en raíz del vehículo)
+        dwg_path = NETWORK_BASE_PATH / vehiculo / archivo
+        if not dwg_path.exists():
+            abort(404, f"Archivo no encontrado: {vehiculo}/{carpeta_path}/{archivo}")
+    carpeta = carpeta_path
 
     stem      = _safe_stem(vehiculo, carpeta, dwg_path.stem)
     data_file = DATA_DIR / (stem + ".json")

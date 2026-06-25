@@ -1099,57 +1099,91 @@ async function selectVehiculo(vehiculo) {
 //  FILE TREE
 // ═══════════════════════════════════════════════
 function renderTree(planos, filter = '') {
-  const byFolder = {};
-  planos.forEach(p => {
-    if (filter && !p.archivo.toLowerCase().includes(filter.toLowerCase()) &&
-        !p.carpeta.toLowerCase().includes(filter.toLowerCase())) return;
-    (byFolder[p.carpeta] = byFolder[p.carpeta] || []).push(p);
-  });
+  const q = filter.toLowerCase();
 
-  if (Object.keys(byFolder).length === 0) {
+  // Filtrar
+  const filtered = filter
+    ? planos.filter(p =>
+        p.archivo.toLowerCase().includes(q) ||
+        p.carpeta.toLowerCase().includes(q) ||
+        (p.tipo || '').toLowerCase().includes(q))
+    : planos;
+
+  if (!filtered.length) {
     fileTree.innerHTML = '<div style="padding:16px 12px;color:var(--text-3);font-size:11px;text-align:center;">Sin resultados</div>';
     return;
   }
 
+  // Construir árbol jerárquico desde carpeta_parts
+  // nodo = { name, children: {}, files: [] }
+  const root = { name: '', children: {}, files: [] };
+
+  filtered.forEach(p => {
+    const parts = p.carpeta_parts || (p.carpeta === '(raíz)' ? [] : p.carpeta.split('/'));
+    let node = root;
+    parts.forEach(part => {
+      if (!node.children[part]) node.children[part] = { name: part, children: {}, files: [] };
+      node = node.children[part];
+    });
+    node.files.push(p);
+  });
+
   fileTree.innerHTML = '';
-  Object.entries(byFolder).forEach(([carpeta, files]) => {
+  renderNode(root, fileTree, 0);
+}
+
+function renderNode(node, container, depth) {
+  // Archivos directos de este nodo
+  node.files.forEach(p => {
+    const indent = 12 + depth * 10;
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.dataset.archivo = p.archivo;
+    item.dataset.carpeta = p.carpeta;
+    item.style.paddingLeft = indent + 'px';
+    item.innerHTML = `
+      <div class="file-dot"></div>
+      <span class="file-label" title="${p.carpeta}/${p.archivo}">${p.archivo}</span>
+      ${p.tipo ? `<span class="type-badge">${p.tipo.split(' ')[0]}</span>` : ''}
+    `;
+    item.addEventListener('click', () => selectPlano(p));
+    container.appendChild(item);
+  });
+
+  // Subcarpetas
+  Object.entries(node.children).forEach(([name, child]) => {
+    const totalFiles = countFiles(child);
+    const indent = 12 + depth * 10;
+
     const group = document.createElement('div');
     group.className = 'folder-group open';
 
     const header = document.createElement('div');
     header.className = 'folder-header';
+    header.style.paddingLeft = indent + 'px';
     header.innerHTML = `
-      <svg class="folder-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <svg class="folder-arrow" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="m9 18 6-6-6-6"/>
       </svg>
-      <span class="folder-name">${carpeta}</span>
-      <span class="folder-count">${files.length}</span>
+      <span class="folder-name" title="${name}">${name}</span>
+      <span class="folder-count">${totalFiles}</span>
     `;
-    header.addEventListener('click', () => {
-      group.classList.toggle('open');
-    });
+    header.addEventListener('click', () => group.classList.toggle('open'));
 
     const filesEl = document.createElement('div');
     filesEl.className = 'folder-files';
-
-    files.forEach(p => {
-      const item = document.createElement('div');
-      item.className = 'file-item';
-      item.dataset.archivo = p.archivo;
-      item.dataset.carpeta = p.carpeta;
-      item.innerHTML = `
-        <div class="file-dot"></div>
-        <span class="file-label" title="${p.archivo}">${p.archivo}</span>
-        <span class="type-badge">${p.tipo.split(' ')[0]}</span>
-      `;
-      item.addEventListener('click', () => selectPlano(p));
-      filesEl.appendChild(item);
-    });
+    renderNode(child, filesEl, depth + 1);
 
     group.appendChild(header);
     group.appendChild(filesEl);
-    fileTree.appendChild(group);
+    container.appendChild(group);
   });
+}
+
+function countFiles(node) {
+  let c = node.files.length;
+  Object.values(node.children).forEach(ch => c += countFiles(ch));
+  return c;
 }
 
 function filterTree() {
