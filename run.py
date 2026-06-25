@@ -15,8 +15,7 @@ from api.server import app
 
 if __name__ == "__main__":
     url = f"http://{WEB_HOST}:{WEB_PORT}"
-    print(f"\n  AUTOMATA — AGP Glass")
-    print(f"  ─────────────────────────────")
+    print(f"\n  AUTOMATA - AGP Glass")
     print(f"  Servidor: {url}")
     print(f"  Ctrl+C para detener\n")
     webbrowser.open(url)

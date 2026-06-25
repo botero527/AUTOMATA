@@ -90,22 +90,29 @@ def _normalize_field(text: str) -> str | None:
     return None
 
 
+def _looks_like_offset_value(text: str) -> bool:
+    """Detecta si un texto es un valor numérico suelto que corresponde a OFFSET."""
+    return bool(re.match(r"^\d+(\.\d+)?$", text.strip()))
+
+
 def _group_into_cajetines(texts: list[dict]) -> list[Cajetin]:
     """
     Agrupa textos cercanos que forman un cajetín (campo técnico + valor).
-    Estrategia:
-      1. Busca textos que sean campos técnicos conocidos.
-      2. Busca el valor más cercano a la derecha o debajo.
-      3. Agrupa en un Cajetin si hay al menos un campo reconocido.
+
+    En los planos AGP, los cajetines tienen dos filas:
+      Fila 1: OFFSET (label estático en bloque) + valor numérico (ej: 20)
+      Fila 2: BN+D (attrib) + valor (ej: 45+5)
+
+    El texto "OFFSET" no aparece como entidad en el DXF (es geometría del bloque).
+    Solo aparece el número de OFFSET como texto suelto una línea arriba del BN+D.
     """
     if not texts:
         return []
 
-    # Ordenar por Y desc (arriba primero), luego X asc
     sorted_texts = sorted(texts, key=lambda t: (-t["y"], t["x"]))
 
     used = set()
-    cajetines_raw = []  # lista de [(campo, valor, x, y)]
+    cajetines_raw = []
 
     for i, t in enumerate(sorted_texts):
         if i in used:
@@ -114,7 +121,7 @@ def _group_into_cajetines(texts: list[dict]) -> list[Cajetin]:
         if campo is None:
             continue
 
-        # Buscar valor: texto más cercano a la derecha (mismo Y ±5) o abajo (mismo X ±50)
+        # Buscar valor del campo: a la derecha o debajo
         best_val = None
         best_dist = float("inf")
 
@@ -122,41 +129,63 @@ def _group_into_cajetines(texts: list[dict]) -> list[Cajetin]:
             if j == i or j in used:
                 continue
             if _normalize_field(v["text"]) is not None:
-                continue  # otro campo, no un valor
+                continue
 
             dx = v["x"] - t["x"]
             dy = abs(v["y"] - t["y"])
 
-            # A la derecha en la misma línea
             if 0 < dx < PROXIMITY_X and dy < PROXIMITY_Y:
                 dist = dx + dy * 2
                 if dist < best_dist:
                     best_dist = dist
                     best_val = (j, v)
-
-            # Justo debajo
             elif dy < PROXIMITY_Y * 2 and abs(dx) < 80:
                 dist = dy + abs(dx)
                 if dist < best_dist:
                     best_dist = dist
                     best_val = (j, v)
 
-        if best_val:
-            j_val, v = best_val
-            used.add(i)
-            used.add(j_val)
-            cajetines_raw.append({
-                "campo": campo,
-                "valor": v["text"],
-                "cx": (t["x"] + v["x"]) / 2,
-                "cy": (t["y"] + v["y"]) / 2,
-                "x_min": min(t["x"], v["x"]) - 5,
-                "y_min": min(t["y"], v["y"]) - 5,
-                "x_max": max(t["x"], v["x"]) + 80,
-                "y_max": max(t["y"], v["y"]) + 15,
-            })
+        if not best_val:
+            continue
 
-    # Agrupar pares cercanos en cajetines compuestos
+        j_val, v = best_val
+        used.add(i)
+        used.add(j_val)
+
+        pair = {
+            "campo": campo,
+            "valor": v["text"],
+            "cx": (t["x"] + v["x"]) / 2,
+            "cy": (t["y"] + v["y"]) / 2,
+            "x_min": min(t["x"], v["x"]) - 5,
+            "y_min": min(t["y"], v["y"]) - 5,
+            "x_max": max(t["x"], v["x"]) + 80,
+            "y_max": max(t["y"], v["y"]) + 15,
+        }
+
+        # Buscar valor OFFSET: número suelto en la fila de ARRIBA del campo (Y+10 a Y+30)
+        # y con X similar al valor del campo
+        offset_val = None
+        for k, u in enumerate(sorted_texts):
+            if k in used:
+                continue
+            if not _looks_like_offset_value(u["text"]):
+                continue
+            dy_up = u["y"] - t["y"]        # positivo = más arriba en DXF
+            dx_near = abs(u["x"] - v["x"]) # cerca del valor
+            if 5 < dy_up < 35 and dx_near < 120:
+                offset_val = (k, u)
+                break
+
+        if offset_val:
+            k_off, u = offset_val
+            used.add(k_off)
+            pair["offset_valor"] = u["text"]
+            pair["x_min"] = min(pair["x_min"], u["x"] - 5)
+            pair["y_max"] = max(pair["y_max"], u["y"] + 15)
+
+        cajetines_raw.append(pair)
+
     merged = _merge_nearby_pairs(cajetines_raw)
     return merged
 
@@ -180,7 +209,11 @@ def _merge_nearby_pairs(pairs: list[dict]) -> list[Cajetin]:
                 group.append(q)
                 used.add(j)
 
-        campos = {g["campo"]: g["valor"] for g in group}
+        campos = {}
+        for g in group:
+            if "offset_valor" in g:
+                campos["OFFSET"] = g["offset_valor"]
+            campos[g["campo"]] = g["valor"]
         all_x = [g["x_min"] for g in group] + [g["x_max"] for g in group]
         all_y = [g["y_min"] for g in group] + [g["y_max"] for g in group]
         cx = sum(g["cx"] for g in group) / len(group)
