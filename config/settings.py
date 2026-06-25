@@ -71,3 +71,21 @@ PIECE_TYPES = {
     "110": "Techo Solar A Paquete",       "125": "Techo Solar B Paquete",
     "187": "Techo Solar C Paquete",       "190": "Techo Solar Panoramico Paquete",
 }
+
+# Pares de simetría: pieza izquierda ↔ derecha.
+# Usados en comparación para incluir el espejo como candidato válido.
+# También aplica a piezas combinadas (007-008 cubre ambos lados).
+PARES_SIMETRIA = {
+    "001": "002", "002": "001",  # Lateral Delantero
+    "003": "004", "004": "003",  # Lateral Trasero
+    "005": "006", "006": "005",  # Ventilete Trasero
+    "007": "008", "008": "007",  # Cabina Trasera
+    "011": "012", "012": "011",  # Lateral Extendido
+    "013": "014", "014": "013",  # Posterior Izq/Der
+    "015": "016", "016": "015",  # Claraboya
+    "019": "020", "020": "019",  # Ventilete Delantero
+    "021": "022", "022": "021",  # Cabina Delantera
+    "023": "024", "024": "023",  # Cabina Superior
+    "026": "027", "027": "026",  # Parabrisas Der/Izq
+    "028": "029", "029": "028",  # Lateral Secundario
+}

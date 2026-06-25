@@ -41,24 +41,32 @@ def _hash_file(path: Path, chunk=65536) -> str:
         return ""
 
 
-def _parse_pieza_cod(filename: str) -> str | None:
+def _parse_piezas_cod(filename: str) -> list[str]:
     """
-    Extrae código de pieza del nombre del archivo.
-    '1761 006 005 A.dwg'    → '005'
-    '1761 006 05 A.dwg'     → '005'  (zero-pad a 3 dígitos)
-    'CR 1576 000 007-008 B' → '008'  (último grupo ≤ 3 dígitos)
-    Ignora números > 999 (son doc numbers, no pieza).
+    Extrae código(s) de pieza del nombre del archivo.
+    Retorna lista de códigos (normalmente 1, a veces 2 cuando son piezas combinadas).
+
+    Ejemplos:
+      '1761 006 005 A.dwg'      → ['005']
+      '1761 006 05 A.dwg'       → ['005']
+      'CR 1576 000 007-008 B'   → ['007', '008']
+      'CR 958 00 03-04 A.dwg'   → ['003', '004']
+      '1056 00 01-02.dwg'       → ['001', '002']
     """
     stem = re.sub(r"\.(dwg|dxf)$", "", filename, flags=re.IGNORECASE).strip()
-    stem = re.sub(r"\s+[A-Z]{1,2}$", "", stem).strip()   # quitar revisión final
-    # Tomar grupos de 1-3 dígitos (pieza nunca tiene 4+ dígitos)
+    stem = re.sub(r"\s+[A-Z]{1,2}$", "", stem).strip()  # quitar revisión final (A, B, EO...)
+
+    # Detectar patrón de dos piezas: NN-NN o NNN-NNN (máx 3 dígitos cada lado)
+    m = re.search(r"\b(\d{1,3})-(\d{1,3})\b", stem)
+    if m:
+        return [m.group(1).zfill(3), m.group(2).zfill(3)]
+
+    # Caso normal: tomar el último grupo de 1-3 dígitos
     parts = re.findall(r"\b(\d{1,3})\b", stem)
     if not parts:
-        return None
-    # Si hay varios, el último que no sea el primero (doc number suele ser el primero largo)
-    # Filtramos el primero si hay más de uno
+        return []
     candidates = parts[1:] if len(parts) > 1 else parts
-    return candidates[-1].zfill(3)
+    return [candidates[-1].zfill(3)]
 
 
 def _parse_carpeta_parts(vehiculo: str, carpeta: str) -> tuple:
@@ -139,8 +147,10 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
 
     log.info("Procesando: %s/%s/%s", vehiculo, carpeta, archivo)
 
-    pieza_cod = _parse_pieza_cod(archivo)
-    pieza_nombre = PIECE_TYPES.get(pieza_cod, "") if pieza_cod else ""
+    piezas_cods = _parse_piezas_cod(archivo)
+    pieza_cod    = piezas_cods[0] if piezas_cods else None
+    pieza_nombre = " + ".join(PIECE_TYPES.get(c, c) for c in piezas_cods) if piezas_cods else ""
+    piezas_cod_str = ",".join(piezas_cods) if piezas_cods else None  # '007,008' o '005'
     marca, modelo, version = _parse_carpeta_parts(vehiculo, carpeta)
     carpeta_parts = [p for p in (carpeta or "").replace("\\","/").split("/") if p]
 
@@ -151,8 +161,8 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
     if not dxf_path:
         plano_data = {
             "vehiculo": vehiculo, "archivo": archivo, "carpeta": carpeta,
-            "carpeta_parts": carpeta_parts, "pieza_cod": pieza_cod,
-            "pieza_nombre": pieza_nombre,
+            "carpeta_parts": carpeta_parts,
+            "pieza_cod": pieza_cod, "pieza_nombre": pieza_nombre, "piezas_cod": piezas_cod_str,
             "vehiculo_marca": marca, "vehiculo_modelo": modelo, "vehiculo_version": version,
             "ruta_red": str(dwg_path),
             "hash_archivo": current_hash, "estado": "ERROR",
@@ -193,7 +203,7 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
         "vehiculo": vehiculo, "archivo": archivo, "carpeta": carpeta,
         "carpeta_parts": carpeta_parts,
         "vehiculo_marca": marca, "vehiculo_modelo": modelo, "vehiculo_version": version,
-        "pieza_cod": pieza_cod, "pieza_nombre": pieza_nombre,
+        "pieza_cod": pieza_cod, "pieza_nombre": pieza_nombre, "piezas_cod": piezas_cod_str,
         "dxf_bounds": plano.dxf_bounds,
         "render_path": str(render.png_path) if render else None,
         "render_w": render_info.get("width_px"), "render_h": render_info.get("height_px"),

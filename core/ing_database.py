@@ -108,7 +108,7 @@ def upsert_plano(conn, data: dict) -> int | None:
                 UPDATE [AUTOMATA].[PLANOS] SET
                     MARCA=?, MODELO=?, VERSION=?,
                     CARPETA_PARTS_JSON=?, RUTA_RED_COMPLETA=?,
-                    PIEZA_COD=?, PIEZA_NOMBRE=?,
+                    PIEZA_COD=?, PIEZA_NOMBRE=?, PIEZAS_COD=?,
                     DXF_XMIN=?, DXF_YMIN=?, DXF_XMAX=?, DXF_YMAX=?,
                     DXF_ANCHO=?, DXF_ALTO=?, ASPECT_RATIO=?,
                     RENDER_PATH=?, RENDER_W_PX=?, RENDER_H_PX=?,
@@ -120,7 +120,7 @@ def upsert_plano(conn, data: dict) -> int | None:
             """,
                 data.get("vehiculo_marca"), data.get("vehiculo_modelo"), data.get("vehiculo_version"),
                 json.dumps(carpeta_parts, ensure_ascii=False), data.get("ruta_red"),
-                data.get("pieza_cod"), data.get("pieza_nombre"),
+                data.get("pieza_cod"), data.get("pieza_nombre"), data.get("piezas_cod"),
                 xmin, ymin, xmax, ymax, ancho, alto, aspect,
                 data.get("render_path"), data.get("render_w"), data.get("render_h"),
                 data.get("dxf_version"),
@@ -136,19 +136,19 @@ def upsert_plano(conn, data: dict) -> int | None:
                 INSERT INTO [AUTOMATA].[PLANOS]
                 (VEHICULO, ARCHIVO, CARPETA, MARCA, MODELO, VERSION,
                  CARPETA_PARTS_JSON, RUTA_RED_COMPLETA,
-                 PIEZA_COD, PIEZA_NOMBRE,
+                 PIEZA_COD, PIEZA_NOMBRE, PIEZAS_COD,
                  DXF_XMIN, DXF_YMIN, DXF_XMAX, DXF_YMAX,
                  DXF_ANCHO, DXF_ALTO, ASPECT_RATIO,
                  RENDER_PATH, RENDER_W_PX, RENDER_H_PX,
                  DXF_VERSION, TOTAL_TEXTOS, TOTAL_CAJETINES,
                  TOTAL_RADIOS, TOTAL_COTAS,
                  HASH_ARCHIVO, ESTADO, ERROR_MSG)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
                 vehiculo, archivo, carpeta,
                 data.get("vehiculo_marca"), data.get("vehiculo_modelo"), data.get("vehiculo_version"),
                 json.dumps(carpeta_parts, ensure_ascii=False), data.get("ruta_red"),
-                data.get("pieza_cod"), data.get("pieza_nombre"),
+                data.get("pieza_cod"), data.get("pieza_nombre"), data.get("piezas_cod"),
                 xmin, ymin, xmax, ymax, ancho, alto, aspect,
                 data.get("render_path"), data.get("render_w"), data.get("render_h"),
                 data.get("dxf_version"),

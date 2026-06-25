@@ -26,8 +26,9 @@ CREATE TABLE [AUTOMATA].[PLANOS] (
     RUTA_RED_COMPLETA   NVARCHAR(1000)  NULL,        -- UNC completa para re-procesar
 
     -- Identificación de pieza
-    PIEZA_COD           NVARCHAR(5)     NULL,        -- '009', '001', '00' normalizado a 3 dígitos
-    PIEZA_NOMBRE        NVARCHAR(100)   NULL,        -- 'Posterior', 'Parabrisas'
+    PIEZA_COD           NVARCHAR(5)     NULL,        -- código principal: '009', '001'
+    PIEZA_NOMBRE        NVARCHAR(200)   NULL,        -- nombre(s): 'Cabina Trasera Izquierda + Derecha'
+    PIEZAS_COD          NVARCHAR(30)    NULL,        -- todos los códigos: '007' o '007,008' si es combinada
 
     -- Geometría del plano (bounding box DXF)
     DXF_XMIN            FLOAT           NULL,
