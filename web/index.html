@@ -887,6 +887,70 @@ body {
 .cz-icon { font-size: 11px; flex-shrink: 0; }
 .cz-score { font-size: 9px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
+/* Reporte detallado */
+.compare-report-bar {
+  flex-shrink: 0; display: flex; align-items: center;
+  padding: 5px 16px; border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.compare-report-toggle {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-2);
+  font-size: 11px; font-family: var(--sans); padding: 5px 12px;
+  cursor: pointer; transition: all 0.15s;
+}
+.compare-report-toggle:hover, .compare-report-toggle.open {
+  color: var(--accent); border-color: var(--accent);
+}
+.compare-report {
+  flex-shrink: 0; max-height: 260px; overflow-y: auto;
+  padding: 12px 20px; border-top: 1px solid var(--border);
+  background: var(--bg);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+.compare-report.hidden { display: none; }
+
+/* Tarjeta de zona en reporte */
+.rpt-card {
+  border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; font-size: 11px;
+}
+.rpt-card.match    { border-color: rgba(52,211,153,0.35); }
+.rpt-card.partial  { border-color: rgba(251,191,36,0.35); }
+.rpt-card.mismatch { border-color: rgba(248,113,113,0.35); }
+
+.rpt-card-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+}
+.rpt-card.match    .rpt-card-head { background: rgba(52,211,153,0.08); color: #34d399; }
+.rpt-card.partial  .rpt-card-head { background: rgba(251,191,36,0.08); color: #fbbf24; }
+.rpt-card.mismatch .rpt-card-head { background: rgba(248,113,113,0.08); color: #f87171; }
+
+.rpt-card-section { font-size: 9px; color: var(--text-3); margin-left: auto; }
+.rpt-card-score   { font-variant-numeric: tabular-nums; }
+
+.rpt-card-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
+.rpt-row { display: grid; grid-template-columns: 90px 1fr 1fr; gap: 4px; align-items: start; }
+.rpt-row-label { font-size: 9px; color: var(--text-3); padding-top: 1px; }
+.rpt-val { display: flex; flex-wrap: wrap; gap: 3px; }
+.rpt-chip {
+  font-size: 10px; padding: 1px 6px; border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.rpt-chip.match   { background: rgba(52,211,153,0.15); color: #34d399; }
+.rpt-chip.missing { background: rgba(248,113,113,0.12); color: #f87171; }
+.rpt-chip.neutral { background: var(--surface); color: var(--text-2); }
+.rpt-chip.extra   { background: rgba(251,191,36,0.12); color: #fbbf24; }
+.rpt-diff-note {
+  font-size: 9px; color: #fbbf24;
+  grid-column: 2 / 4; padding-top: 2px;
+}
+.rpt-empty { font-size: 10px; color: var(--text-3); font-style: italic; }
+
 /* Strip de thumbnails */
 .compare-strip-wrap {
   flex-shrink: 0; border-top: 1px solid var(--border);
@@ -1273,6 +1337,15 @@ body {
       <div class="compare-panel-info" id="compare-panel-info-b"></div>
     </div>
   </div>
+  <!-- Reporte detallado -->
+  <div class="compare-report-bar" id="compare-report-bar">
+    <button class="compare-report-toggle" id="compare-report-toggle">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Ver reporte detallado
+    </button>
+  </div>
+  <div class="compare-report hidden" id="compare-report"></div>
+
   <div class="compare-strip-wrap">
     <div class="compare-strip" id="compare-strip"></div>
   </div>
@@ -2045,6 +2118,13 @@ function loadSimilarIntoPanel(s) {
   const zonasRad = s.detalles_radios || [];
   const zonasCot = s.detalles_cotas || [];
 
+  // Generar reporte detallado (siempre, aunque esté oculto)
+  renderReporteDetallado(s);
+  // Resetear toggle si el reporte estaba abierto
+  $('compare-report').classList.add('hidden');
+  $('compare-report-toggle').classList.remove('open');
+  $('compare-report-toggle').lastChild.textContent = ' Ver reporte detallado';
+
   $('compare-zones').innerHTML = `
     ${zonasCaj.length ? `<div class="cz-section-label">Cajetines</div>${_renderZonaRows(zonasCaj, z =>
       `OFFSET: ${z.offsets_a} vs ${z.offsets_b} | BN+D: ${z.bn_a} vs ${z.bn_b}`)}` : ''}
@@ -2056,6 +2136,147 @@ function loadSimilarIntoPanel(s) {
       ? '<div style="font-size:10px;color:var(--text-3)">Sin zonas</div>' : ''}
   `;
 }
+
+// ═══════════════════════════════════════════════
+//  REPORTE DETALLADO
+// ═══════════════════════════════════════════════
+
+let _reporteSimilar = null;
+
+function _chip(val, cls) {
+  return `<span class="rpt-chip ${cls}">${val}</span>`;
+}
+
+function _buildReporteCard(zona, detalles, tipo) {
+  const pct = Math.round(detalles.score * 100);
+  const cls = pct >= 70 ? 'match' : pct >= 35 ? 'partial' : 'mismatch';
+  let bodyHtml = '';
+
+  if (tipo === 'cajetines') {
+    // OFFSET
+    const ofA = detalles.offsets_a || [];
+    const ofB = detalles.offsets_b || [];
+    const ofMatch = ofA.length > 0 && ofB.length > 0 && JSON.stringify(ofA.sort()) === JSON.stringify(ofB.sort());
+    const ofDiff = ofA.length && ofB.length ? Math.abs(ofA[0] - ofB[0]) : null;
+
+    bodyHtml += `<div class="rpt-row">
+      <span class="rpt-row-label">OFFSET</span>
+      <div class="rpt-val">${ofA.length ? ofA.map(v => _chip(v, ofMatch ? 'match' : 'missing')).join('') : _chip('—','neutral')}</div>
+      <div class="rpt-val">${ofB.length ? ofB.map(v => _chip(v, ofMatch ? 'match' : 'extra')).join('') : _chip('—','neutral')}</div>
+      ${ofDiff && !ofMatch ? `<div class="rpt-diff-note">Diferencia: ${ofDiff > 0 ? '+' : ''}${ofA[0]-ofB[0]} (${Math.round(Math.abs(ofDiff)/Math.max(ofA[0]||1,ofB[0]||1)*100)}%)</div>` : ''}
+    </div>`;
+
+    // BN+D
+    const bnA = detalles.bn_a || [];
+    const bnB = detalles.bn_b || [];
+    const bnMatch = bnA.length > 0 && bnB.length > 0 && JSON.stringify(bnA.sort()) === JSON.stringify(bnB.sort());
+    bodyHtml += `<div class="rpt-row">
+      <span class="rpt-row-label">BN+D</span>
+      <div class="rpt-val">${bnA.length ? bnA.map(v => _chip(v, bnMatch ? 'match' : 'missing')).join('') : _chip('—','neutral')}</div>
+      <div class="rpt-val">${bnB.length ? bnB.map(v => _chip(v, bnMatch ? 'match' : 'extra')).join('') : _chip('—','neutral')}</div>
+    </div>`;
+
+    // Conteo
+    if (detalles.n_a !== detalles.n_b) {
+      bodyHtml += `<div class="rpt-row">
+        <span class="rpt-row-label">Cajetines</span>
+        <div class="rpt-val">${_chip(detalles.n_a + ' caj.', 'neutral')}</div>
+        <div class="rpt-val">${_chip(detalles.n_b + ' caj.', 'neutral')}</div>
+        <div class="rpt-diff-note">Diferencia: ${Math.abs(detalles.n_a - detalles.n_b)} cajetín(es)</div>
+      </div>`;
+    }
+
+  } else if (tipo === 'radios') {
+    const vA = (detalles.vals_a || []).map(v => 'R' + v);
+    const vB = (detalles.vals_b || []).map(v => 'R' + v);
+    const soloA = (detalles.solo_a || []).map(v => 'R' + v);
+    const soloB = (detalles.solo_b || []).map(v => 'R' + v);
+    const comun = vA.filter(v => vB.includes(v));
+
+    bodyHtml += `<div class="rpt-row">
+      <span class="rpt-row-label">Radios REF</span>
+      <div class="rpt-val" style="grid-column:2/4">${vA.length
+        ? vA.map(v => _chip(v, soloA.includes(v) ? 'missing' : 'match')).join('')
+        : _chip('sin radios', 'neutral')}</div>
+    </div>
+    <div class="rpt-row">
+      <span class="rpt-row-label">Radios SIM</span>
+      <div class="rpt-val" style="grid-column:2/4">${vB.length
+        ? vB.map(v => _chip(v, soloB.includes(v) ? 'extra' : 'match')).join('')
+        : _chip('sin radios', 'neutral')}</div>
+    </div>`;
+    if (soloA.length) bodyHtml += `<div class="rpt-diff-note">Solo en referencia: ${soloA.join(', ')}</div>`;
+    if (soloB.length) bodyHtml += `<div class="rpt-diff-note">Solo en similar: ${soloB.join(', ')}</div>`;
+
+  } else if (tipo === 'cotas') {
+    const vA = detalles.vals_a || [];
+    const vB = detalles.vals_b || [];
+    bodyHtml += `<div class="rpt-row">
+      <span class="rpt-row-label">Referencia</span>
+      <div class="rpt-val" style="grid-column:2/4">${vA.length
+        ? vA.map(v => _chip(v, 'neutral')).join('')
+        : _chip('—', 'neutral')}</div>
+    </div>
+    <div class="rpt-row">
+      <span class="rpt-row-label">Similar</span>
+      <div class="rpt-val" style="grid-column:2/4">${vB.length
+        ? vB.map(v => _chip(v, 'neutral')).join('')
+        : _chip('—', 'neutral')}</div>
+    </div>`;
+  }
+
+  return `<div class="rpt-card ${cls}">
+    <div class="rpt-card-head">
+      <span>${zona}</span>
+      <span class="rpt-card-section">${tipo.toUpperCase()}</span>
+      <span class="rpt-card-score">${pct}%</span>
+    </div>
+    <div class="rpt-card-body">${bodyHtml}</div>
+  </div>`;
+}
+
+function renderReporteDetallado(s) {
+  const report = $('compare-report');
+  const cards = [];
+
+  (s.detalles_cajetines || []).forEach(z => {
+    cards.push(_buildReporteCard(z.zona, z, 'cajetines'));
+  });
+  (s.detalles_radios || []).forEach(z => {
+    cards.push(_buildReporteCard(z.zona, z, 'radios'));
+  });
+  (s.detalles_cotas || []).forEach(z => {
+    cards.push(_buildReporteCard(z.zona, z, 'cotas'));
+  });
+
+  const header = `<div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;font-size:10px;color:var(--text-3);padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:2px">
+    <span style="flex:1">ZONA / TIPO</span>
+    <span style="width:90px"></span>
+    <span style="color:var(--accent);font-weight:600">REFERENCIA</span>
+    <span style="width:8px"></span>
+    <span style="color:#a78bfa;font-weight:600">SIMILAR</span>
+  </div>`;
+
+  if (!cards.length) {
+    report.innerHTML = '<div class="rpt-empty" style="padding:12px">Sin datos de zonas — indexar primero para comparación completa</div>';
+  } else {
+    report.innerHTML = header + cards.join('');
+  }
+  _reporteSimilar = s;
+}
+
+// Toggle del reporte
+$('compare-report-toggle').addEventListener('click', () => {
+  const rep = $('compare-report');
+  const btn = $('compare-report-toggle');
+  const open = !rep.classList.contains('hidden');
+  rep.classList.toggle('hidden', open);
+  btn.classList.toggle('open', !open);
+  btn.querySelector('svg + *') || null;
+  btn.childNodes[btn.childNodes.length - 1].textContent = open
+    ? ' Ver reporte detallado'
+    : ' Ocultar reporte';
+});
 
 // Botón volver
 $('compare-back').addEventListener('click', () => {
