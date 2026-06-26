@@ -5,6 +5,7 @@ Guarda en AGP_Ingenieria.AUTOMATA (no JSON).
 """
 import hashlib
 import logging
+import math
 import re
 from pathlib import Path
 
@@ -118,6 +119,112 @@ def _extract_radios_cotas(textos: list, cajetin_values: set) -> tuple:
     return radios, cotas
 
 
+# ─── Extracción de geometría avanzada ─────────────────────────────────────────
+
+def _extract_perimetro(msp) -> dict:
+    """
+    Extrae área real, perímetro y vértices del layer PERIMETRO.
+    Soporta LWPOLYLINE, SPLINE, LINE y ARC.
+    """
+    area_total = 0.0
+    long_total  = 0.0
+    vert_total  = 0
+
+    for entity in msp:
+        try:
+            layer = (entity.dxf.layer or "").upper().replace(" ", "")
+            if "PERIMETRO" not in layer and "PERIMETR" not in layer:
+                continue
+            etype = entity.dxftype()
+
+            if etype == "LWPOLYLINE":
+                pts = list(entity.get_points())
+                n = len(pts)
+                if n < 3:
+                    continue
+                vert_total += n
+                area = sum(pts[i][0] * pts[(i+1)%n][1] - pts[(i+1)%n][0] * pts[i][1]
+                           for i in range(n))
+                area_total += abs(area) / 2.0
+                for i in range(n):
+                    dx = pts[(i+1)%n][0] - pts[i][0]
+                    dy = pts[(i+1)%n][1] - pts[i][1]
+                    long_total += math.hypot(dx, dy)
+
+            elif etype == "SPLINE":
+                pts = list(entity.control_points)
+                vert_total += len(pts)
+                for i in range(len(pts) - 1):
+                    long_total += math.hypot(pts[i+1][0]-pts[i][0], pts[i+1][1]-pts[i][1])
+
+            elif etype == "LINE":
+                p1, p2 = entity.dxf.start, entity.dxf.end
+                long_total += math.hypot(p2.x - p1.x, p2.y - p1.y)
+                vert_total += 2
+
+            elif etype == "ARC":
+                r = entity.dxf.radius
+                angle = (entity.dxf.end_angle - entity.dxf.start_angle) % 360
+                long_total += r * math.radians(angle)
+                vert_total += 1
+
+        except Exception:
+            continue
+
+    return {
+        "area":     round(area_total, 2),
+        "long":     round(long_total, 2),
+        "vertices": vert_total,
+    }
+
+
+def _extract_angulo_instalacion(textos: list) -> float | None:
+    """Busca 'ANGULO DE INSTALACION XX°' en los textos del plano."""
+    for t in textos:
+        texto = str(t.get("text", "")).upper()
+        m = re.search(r'ANGULO\s+DE\s+INSTALACI[OÓ]N[^\d]*(\d+\.?\d*)', texto)
+        if m:
+            try:
+                return float(m.group(1))
+            except Exception:
+                pass
+    return None
+
+
+def _extract_layer_stats(msp) -> dict:
+    """
+    Cuenta entidades y longitud total por layer.
+    Retorna {layer_name: {count, length}}.
+    """
+    stats = {}
+    for entity in msp:
+        try:
+            layer = (entity.dxf.layer or "UNKNOWN").strip()
+            if layer not in stats:
+                stats[layer] = {"count": 0, "length": 0.0}
+            stats[layer]["count"] += 1
+
+            etype = entity.dxftype()
+            if etype == "LINE":
+                p1, p2 = entity.dxf.start, entity.dxf.end
+                stats[layer]["length"] += math.hypot(p2.x - p1.x, p2.y - p1.y)
+            elif etype == "LWPOLYLINE":
+                pts = list(entity.get_points())
+                for i in range(len(pts) - 1):
+                    stats[layer]["length"] += math.hypot(
+                        pts[i+1][0] - pts[i][0], pts[i+1][1] - pts[i][1])
+            elif etype == "ARC":
+                r = entity.dxf.radius
+                angle = (entity.dxf.end_angle - entity.dxf.start_angle) % 360
+                stats[layer]["length"] += r * math.radians(angle)
+            elif etype == "CIRCLE":
+                stats[layer]["length"] += 2 * math.pi * entity.dxf.radius
+        except Exception:
+            continue
+
+    return stats
+
+
 # ─── Pipeline de un plano ─────────────────────────────────────────────────────
 
 def process_plano(vehiculo: str, carpeta: str, archivo: str,
@@ -132,7 +239,7 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
     from core.database    import buscar_imagenes
     from core.ing_database import (
         upsert_plano, save_cajetines, save_textos,
-        save_radios, save_cotas, save_imagenes_sap,
+        save_radios, save_cotas, save_imagenes_sap, save_layer_stats,
         get_hash_en_db
     )
 
@@ -184,7 +291,21 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
             cajetin_values.add(str(v))
     radios, cotas = _extract_radios_cotas(plano.todos_los_textos, cajetin_values)
 
-    # 5. Cajetines con coordenadas px
+    # 5. Geometría avanzada: perímetro + layer stats + ángulo
+    try:
+        import ezdxf
+        doc = ezdxf.readfile(str(dxf_path))
+        msp = doc.modelspace()
+        perimetro_info = _extract_perimetro(msp)
+        layer_stats    = _extract_layer_stats(msp)
+    except Exception as e:
+        log.warning("Error extrayendo geometría avanzada: %s", e)
+        perimetro_info = {"area": None, "long": None, "vertices": None}
+        layer_stats    = {}
+
+    angulo_instalacion = _extract_angulo_instalacion(plano.todos_los_textos)
+
+    # 6. Cajetines con coordenadas px
     cajetines_full = []
     for caj in plano.cajetines:
         caj_dict = caj.to_dict()
@@ -194,10 +315,10 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
             caj_dict["center_px"] = {"x": pt[0], "y": pt[1]}
         cajetines_full.append(caj_dict)
 
-    # 6. SAP
+    # 7. SAP
     imagenes_sap = buscar_imagenes(archivo)
 
-    # 7. Guardar en DB
+    # 8. Guardar en DB
     render_info = render.to_dict() if render else {}
     plano_data = {
         "vehiculo": vehiculo, "archivo": archivo, "carpeta": carpeta,
@@ -212,6 +333,11 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
         "total_cajetines": len(cajetines_full),
         "total_radios":    len(radios),
         "total_cotas":     len(cotas),
+        "total_layers":    len(layer_stats),
+        "perimetro_area":      perimetro_info.get("area"),
+        "perimetro_long":      perimetro_info.get("long"),
+        "perimetro_vertices":  perimetro_info.get("vertices"),
+        "angulo_instalacion":  angulo_instalacion,
         "hash_archivo": current_hash,
         "ruta_red":     str(dwg_path),
         "estado": "ERROR" if plano.error else "OK",
@@ -228,9 +354,11 @@ def process_plano(vehiculo: str, carpeta: str, archivo: str,
     save_radios(conn, plano_id, radios, plano.dxf_bounds)
     save_cotas(conn, plano_id, cotas, plano.dxf_bounds)
     save_imagenes_sap(conn, plano_id, imagenes_sap)
+    save_layer_stats(conn, plano_id, layer_stats)
 
-    log.info("OK plano_id=%d | %d cajetines | %d radios | %d cotas",
-             plano_id, len(cajetines_full), len(radios), len(cotas))
+    log.info("OK plano_id=%d | %d cajetines | %d radios | %d cotas | perim=%.0f | ang=%s",
+             plano_id, len(cajetines_full), len(radios), len(cotas),
+             perimetro_info.get("area") or 0, angulo_instalacion)
     return {"ok": True, "plano_id": plano_id, "skipped": False}
 
 

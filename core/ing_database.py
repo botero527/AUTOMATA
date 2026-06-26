@@ -113,7 +113,9 @@ def upsert_plano(conn, data: dict) -> int | None:
                     DXF_ANCHO=?, DXF_ALTO=?, ASPECT_RATIO=?,
                     RENDER_PATH=?, RENDER_W_PX=?, RENDER_H_PX=?,
                     DXF_VERSION=?, TOTAL_TEXTOS=?, TOTAL_CAJETINES=?,
-                    TOTAL_RADIOS=?, TOTAL_COTAS=?,
+                    TOTAL_RADIOS=?, TOTAL_COTAS=?, TOTAL_LAYERS=?,
+                    PERIMETRO_AREA=?, PERIMETRO_LONG=?, PERIMETRO_VERTICES=?,
+                    ANGULO_INSTALACION=?,
                     HASH_ARCHIVO=?, ESTADO=?, ERROR_MSG=?,
                     FECHA_PROCESO=GETDATE()
                 WHERE ID=?
@@ -125,7 +127,9 @@ def upsert_plano(conn, data: dict) -> int | None:
                 data.get("render_path"), data.get("render_w"), data.get("render_h"),
                 data.get("dxf_version"),
                 data.get("total_textos", 0), data.get("total_cajetines", 0),
-                data.get("total_radios", 0), data.get("total_cotas", 0),
+                data.get("total_radios", 0), data.get("total_cotas", 0), data.get("total_layers", 0),
+                data.get("perimetro_area"), data.get("perimetro_long"), data.get("perimetro_vertices"),
+                data.get("angulo_instalacion"),
                 data.get("hash_archivo"), data.get("estado", "OK"), data.get("error"),
                 existing_id
             )
@@ -141,9 +145,11 @@ def upsert_plano(conn, data: dict) -> int | None:
                  DXF_ANCHO, DXF_ALTO, ASPECT_RATIO,
                  RENDER_PATH, RENDER_W_PX, RENDER_H_PX,
                  DXF_VERSION, TOTAL_TEXTOS, TOTAL_CAJETINES,
-                 TOTAL_RADIOS, TOTAL_COTAS,
+                 TOTAL_RADIOS, TOTAL_COTAS, TOTAL_LAYERS,
+                 PERIMETRO_AREA, PERIMETRO_LONG, PERIMETRO_VERTICES,
+                 ANGULO_INSTALACION,
                  HASH_ARCHIVO, ESTADO, ERROR_MSG)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
                 vehiculo, archivo, carpeta,
                 data.get("vehiculo_marca"), data.get("vehiculo_modelo"), data.get("vehiculo_version"),
@@ -153,7 +159,9 @@ def upsert_plano(conn, data: dict) -> int | None:
                 data.get("render_path"), data.get("render_w"), data.get("render_h"),
                 data.get("dxf_version"),
                 data.get("total_textos", 0), data.get("total_cajetines", 0),
-                data.get("total_radios", 0), data.get("total_cotas", 0),
+                data.get("total_radios", 0), data.get("total_cotas", 0), data.get("total_layers", 0),
+                data.get("perimetro_area"), data.get("perimetro_long"), data.get("perimetro_vertices"),
+                data.get("angulo_instalacion"),
                 data.get("hash_archivo"), data.get("estado", "OK"), data.get("error")
             )
             conn.commit()
@@ -504,6 +512,29 @@ def get_hash_en_db(conn, vehiculo: str, carpeta: str, archivo: str) -> str | Non
         return row[0] if row else None
     except Exception:
         return None
+
+
+def save_layer_stats(conn, plano_id: int, stats: dict):
+    """
+    Guarda estadísticas por layer en LAYER_STATS.
+    stats: {layer_name: {count, length}}
+    """
+    if not stats:
+        return
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM [AUTOMATA].[LAYER_STATS] WHERE PLANO_ID=?", plano_id)
+        for layer_name, data in stats.items():
+            cursor.execute("""
+                INSERT INTO [AUTOMATA].[LAYER_STATS]
+                (PLANO_ID, LAYER_NAME, ENTIDADES, LONGITUD_TOTAL)
+                VALUES (?,?,?,?)
+            """, plano_id, layer_name[:100], data.get("count", 0),
+                data.get("length") or None)
+        conn.commit()
+    except Exception as e:
+        log.error("save_layer_stats error plano_id=%d: %s", plano_id, e)
+        conn.rollback()
 
 
 def test_connection() -> bool:

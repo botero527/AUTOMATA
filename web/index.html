@@ -868,11 +868,15 @@ body {
 .csb-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .csb-fill  { height: 100%; border-radius: 2px; transition: width 0.5s; }
 .csb-fill.caj { background: var(--accent); }
+.csb-fill.per { background: #38bdf8; }
 .csb-fill.rad { background: #a78bfa; }
 .csb-fill.cot { background: #34d399; }
+.csb-fill.ang { background: #fb923c; }
+.csb-fill.lay { background: #e879f9; }
 .csb-fill.geo { background: #fbbf24; }
 
 .compare-zones-title { font-size: 9px; color: var(--text-3); letter-spacing: 0.1em; margin-bottom: 6px; align-self: flex-start; }
+.cz-section-label { font-size: 8px; color: var(--text-3); letter-spacing: 0.12em; text-transform: uppercase; margin: 6px 0 3px; align-self: flex-start; width: 100%; border-top: 1px solid var(--border); padding-top: 5px; }
 .compare-zones { width: 100%; display: flex; flex-direction: column; gap: 4px; }
 .cz-row {
   display: flex; align-items: center; gap: 6px;
@@ -2011,24 +2015,46 @@ function loadSimilarIntoPanel(s) {
 
   $('compare-score-bars').innerHTML = [
     ['Cajetines', 'caj', s.score_cajetines],
+    ['Perímetro', 'per', s.score_perimetro],
     ['Radios',    'rad', s.score_radios],
     ['Cotas',     'cot', s.score_cotas],
+    ['Ángulo',    'ang', s.score_angulo],
+    ['Layers',    'lay', s.score_layers],
     ['Geometría', 'geo', s.score_geometria],
-  ].map(([lbl, key, v]) => `
+  ].filter(([,, v]) => v !== undefined).map(([lbl, key, v]) => `
     <div class="csb-row">
-      <div class="csb-label"><span>${lbl}</span><span>${Math.round(v*100)}%</span></div>
-      <div class="csb-track"><div class="csb-fill ${key}" style="width:${Math.round(v*100)}%"></div></div>
+      <div class="csb-label"><span>${lbl}</span><span>${Math.round((v||0)*100)}%</span></div>
+      <div class="csb-track"><div class="csb-fill ${key}" style="width:${Math.round((v||0)*100)}%"></div></div>
     </div>`).join('');
 
-  $('compare-zones').innerHTML = (s.detalles_zonas || []).map(z => {
-    const zPct = Math.round(z.score * 100);
-    const icon = z.match ? '✓' : '≠';
-    return `<div class="cz-row">
-      <span class="cz-zona">${z.zona}</span>
-      <span class="cz-icon" style="color:${z.match ? '#34d399' : '#f87171'}">${icon}</span>
-      <span class="cz-score">${zPct}%</span>
-    </div>`;
-  }).join('') || '<div style="font-size:10px;color:var(--text-3)">Sin zonas</div>';
+  function _renderZonaRows(detalles, labelFn) {
+    if (!detalles || !detalles.length) return '';
+    return detalles.map(z => {
+      const zPct = Math.round(z.score * 100);
+      const ok = z.match;
+      const label = labelFn ? labelFn(z) : '';
+      return `<div class="cz-row" title="${label}">
+        <span class="cz-zona">${z.zona}</span>
+        <span class="cz-icon" style="color:${ok ? '#34d399' : '#f87171'}">${ok ? '✓' : '≠'}</span>
+        <span class="cz-score">${zPct}%</span>
+      </div>`;
+    }).join('');
+  }
+
+  const zonasCaj = s.detalles_cajetines || s.detalles_zonas || [];
+  const zonasRad = s.detalles_radios || [];
+  const zonasCot = s.detalles_cotas || [];
+
+  $('compare-zones').innerHTML = `
+    ${zonasCaj.length ? `<div class="cz-section-label">Cajetines</div>${_renderZonaRows(zonasCaj, z =>
+      `OFFSET: ${z.offsets_a} vs ${z.offsets_b} | BN+D: ${z.bn_a} vs ${z.bn_b}`)}` : ''}
+    ${zonasRad.length ? `<div class="cz-section-label">Radios</div>${_renderZonaRows(zonasRad, z =>
+      `R: ${z.vals_a.map(v=>'R'+v)} vs ${z.vals_b.map(v=>'R'+v)}${z.solo_a.length ? ' | solo ref: R'+z.solo_a : ''}${z.solo_b.length ? ' | solo sim: R'+z.solo_b : ''}`)}` : ''}
+    ${zonasCot.length ? `<div class="cz-section-label">Cotas</div>${_renderZonaRows(zonasCot, z =>
+      `${z.vals_a} vs ${z.vals_b}`)}` : ''}
+    ${!zonasCaj.length && !zonasRad.length && !zonasCot.length
+      ? '<div style="font-size:10px;color:var(--text-3)">Sin zonas</div>' : ''}
+  `;
 }
 
 // Botón volver
