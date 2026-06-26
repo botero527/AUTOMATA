@@ -247,6 +247,27 @@ def sap_image():
     return send_file(str(p), mimetype="image/jpeg")
 
 
+@app.route("/api/render/<int:plano_id>")
+def api_render_by_id(plano_id):
+    """Redirige al PNG de un plano por su ID en DB."""
+    from core.ing_database import _get_connection
+    conn = _get_connection()
+    if not conn:
+        abort(503)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT RENDER_PATH FROM [AUTOMATA].[PLANOS] WHERE ID=?", plano_id)
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            abort(404)
+        p = Path(row[0])
+        if not p.exists():
+            abort(404)
+        return send_from_directory(str(p.parent), p.name)
+    finally:
+        conn.close()
+
+
 @app.route("/api/similares/<int:plano_id>")
 def api_similares(plano_id):
     """Retorna los planos más similares al dado. ?top=10&mismo_vehiculo=0"""

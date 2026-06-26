@@ -5,6 +5,7 @@ Score 0.0-1.0 ponderado por: cajetines (40%) + radios (25%) + cotas (20%) + geom
 """
 import logging
 import re
+from pathlib import Path
 from config.settings import PARES_SIMETRIA
 
 log = logging.getLogger(__name__)
@@ -268,7 +269,7 @@ def buscar_similares(plano_id: int, top_n: int = 10,
 
         cursor.execute(f"""
             SELECT ID, VEHICULO, ARCHIVO, CARPETA, PIEZA_COD, PIEZA_NOMBRE,
-                   PIEZAS_COD, ASPECT_RATIO, DXF_ANCHO, DXF_ALTO
+                   PIEZAS_COD, ASPECT_RATIO, DXF_ANCHO, DXF_ALTO, RENDER_PATH
             FROM [AUTOMATA].[PLANOS]
             WHERE (
                 PIEZA_COD IN ({placeholders})
@@ -285,6 +286,10 @@ def buscar_similares(plano_id: int, top_n: int = 10,
         resultados = []
         for cand in candidatos:
             cand_id = cand[0]
+            render_path = cand[10] or ""
+            render_filename = Path(render_path).name if render_path else ""
+            # png_url: intenta /renders/filename primero, fallback a /api/render/<id>
+            png_url = f"/renders/{render_filename}" if render_filename else f"/api/render/{cand_id}"
             plano_cand = {"aspect_ratio": cand[7], "dxf_ancho": cand[8], "dxf_alto": cand[9]}
 
             cajs_cand   = _load_cajetines(conn, cand_id)

@@ -783,6 +783,139 @@ body {
 .similar-bar-fill  { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s; }
 .similares-loading { font-size: 11px; color: var(--text-3); padding: 8px 0; text-align: center; }
 
+/* ── Vista Comparación ───────────────────────────────────── */
+.compare-view {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+}
+.compare-view.hidden { display: none; }
+
+.compare-header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+.compare-back {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-2);
+  font-size: 12px; font-family: var(--sans); padding: 5px 10px;
+  cursor: pointer; transition: all 0.15s;
+}
+.compare-back:hover { color: var(--text); border-color: var(--accent); }
+.compare-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.compare-pieza { font-size: 11px; color: var(--accent); margin-left: auto; letter-spacing: 0.06em; }
+
+.compare-body {
+  flex: 1; display: flex; min-height: 0; overflow: hidden;
+}
+.compare-panel {
+  flex: 1; display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); overflow: hidden;
+}
+.compare-panel:last-child { border-right: none; }
+.compare-panel-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+  padding: 5px 12px; flex-shrink: 0;
+}
+.compare-panel-tag.ref { color: var(--accent); background: rgba(0,184,217,0.06); }
+.compare-panel-tag.sim { color: #a78bfa;       background: rgba(139,92,246,0.06); }
+
+.compare-img-wrap {
+  flex: 1; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: #060810;
+}
+.compare-img-wrap img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  transition: opacity 0.2s;
+}
+.compare-img-empty {
+  position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 12px; color: var(--text-3);
+}
+.compare-img-wrap img[src=""] { opacity: 0; }
+.compare-img-wrap img:not([src=""]) + .compare-img-empty { display: none; }
+
+.compare-panel-info {
+  flex-shrink: 0; padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-2); line-height: 1.5;
+}
+
+/* Centro — score y zonas */
+.compare-center {
+  width: 200px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 20px 12px; overflow-y: auto;
+  border-right: 1px solid var(--border);
+  gap: 4px;
+}
+.compare-score-big {
+  font-size: 42px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--accent); line-height: 1;
+}
+.compare-score-big.high { color: #34d399; }
+.compare-score-big.mid  { color: #fbbf24; }
+.compare-score-big.low  { color: #f87171; }
+.compare-score-label { font-size: 9px; color: var(--text-3); letter-spacing: 0.1em; margin-bottom: 12px; }
+.compare-score-bars { width: 100%; display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.csb-row { width: 100%; }
+.csb-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-3); margin-bottom: 3px; }
+.csb-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.csb-fill  { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.csb-fill.caj { background: var(--accent); }
+.csb-fill.rad { background: #a78bfa; }
+.csb-fill.cot { background: #34d399; }
+.csb-fill.geo { background: #fbbf24; }
+
+.compare-zones-title { font-size: 9px; color: var(--text-3); letter-spacing: 0.1em; margin-bottom: 6px; align-self: flex-start; }
+.compare-zones { width: 100%; display: flex; flex-direction: column; gap: 4px; }
+.cz-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; padding: 4px 6px;
+  border-radius: 4px; background: var(--surface);
+}
+.cz-zona { flex: 1; color: var(--text-3); font-size: 9px; }
+.cz-icon { font-size: 11px; flex-shrink: 0; }
+.cz-score { font-size: 9px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* Strip de thumbnails */
+.compare-strip-wrap {
+  flex-shrink: 0; border-top: 1px solid var(--border);
+  background: var(--surface); padding: 10px 16px;
+  overflow-x: auto;
+}
+.compare-strip {
+  display: flex; gap: 10px; width: max-content;
+}
+.compare-thumb {
+  width: 120px; flex-shrink: 0; cursor: pointer;
+  border: 2px solid var(--border); border-radius: 6px;
+  overflow: hidden; transition: border-color 0.15s; background: #060810;
+}
+.compare-thumb:hover   { border-color: var(--accent-dim); }
+.compare-thumb.active  { border-color: #a78bfa; }
+.compare-thumb-img {
+  width: 100%; height: 70px; object-fit: contain; display: block;
+  background: #060810;
+}
+.compare-thumb-meta {
+  padding: 4px 6px;
+  background: var(--surface);
+}
+.compare-thumb-score {
+  font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.compare-thumb-score.high { color: #34d399; }
+.compare-thumb-score.mid  { color: #fbbf24; }
+.compare-thumb-score.low  { color: #f87171; }
+.compare-thumb-name { font-size: 9px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* Modal de imagen SAP */
 .img-modal {
   display: none;
@@ -1101,6 +1234,46 @@ body {
 </div>
 
 <!-- MODAL IMAGEN SAP -->
+<!-- ═══ VISTA COMPARACIÓN ═══ -->
+<div class="compare-view hidden" id="compare-view">
+  <div class="compare-header">
+    <button class="compare-back" id="compare-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Volver
+    </button>
+    <div class="compare-title" id="compare-title">Comparando similares</div>
+    <div class="compare-pieza" id="compare-pieza"></div>
+  </div>
+  <div class="compare-body">
+    <div class="compare-panel">
+      <div class="compare-panel-tag ref">REFERENCIA</div>
+      <div class="compare-img-wrap" id="compare-wrap-a">
+        <img id="compare-img-a" src="" alt="">
+        <div class="compare-img-empty" id="compare-empty-a">Sin imagen</div>
+      </div>
+      <div class="compare-panel-info" id="compare-info-a"></div>
+    </div>
+    <div class="compare-center">
+      <div class="compare-score-big" id="compare-score-big">—</div>
+      <div class="compare-score-label">similitud</div>
+      <div class="compare-score-bars" id="compare-score-bars"></div>
+      <div class="compare-zones-title">Zonas</div>
+      <div class="compare-zones" id="compare-zones"></div>
+    </div>
+    <div class="compare-panel">
+      <div class="compare-panel-tag sim">SIMILAR</div>
+      <div class="compare-img-wrap" id="compare-wrap-b">
+        <img id="compare-img-b" src="" alt="">
+        <div class="compare-img-empty" id="compare-empty-b">Selecciona un plano</div>
+      </div>
+      <div class="compare-panel-info" id="compare-panel-info-b"></div>
+    </div>
+  </div>
+  <div class="compare-strip-wrap">
+    <div class="compare-strip" id="compare-strip"></div>
+  </div>
+</div>
+
 <div class="img-modal" id="img-modal">
   <div class="img-modal-inner">
     <div class="img-modal-loading" id="img-modal-loading">
@@ -1130,6 +1303,7 @@ const state = {
   renderInfo: null,
   imagenesSap: [],
   planoId: null,
+  currentPlanoData: null,
 };
 
 // ═══════════════════════════════════════════════
@@ -1372,6 +1546,7 @@ async function selectPlano(plano) {
     state.renderInfo = data.render || {};
     state.imagenesSap = data.imagenes_sap || [];
     state.planoId = data.plano_id || null;
+    state.currentPlanoData = data;
     state.selectedCajetin = null;
 
     // Load the rendered image
@@ -1743,12 +1918,123 @@ async function cargarSimilares(planoId, container, btn) {
       list.appendChild(card);
     });
 
+    // Botón para abrir la vista de comparación completa
+    const openBtn = document.createElement('button');
+    openBtn.className = 'similares-btn';
+    openBtn.style.marginTop = '8px';
+    openBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg> Ver comparación completa`;
+    openBtn.addEventListener('click', () => openCompareView(planoId, data));
     container.appendChild(list);
+    container.appendChild(openBtn);
   } catch (e) {
     container.innerHTML = '<div class="similares-loading">Error al buscar similares</div>';
     console.error(e);
   }
 }
+
+// ═══════════════════════════════════════════════
+//  VISTA COMPARACIÓN COMPLETA
+// ═══════════════════════════════════════════════
+
+let _compareRef = null;   // datos completos del plano referencia
+
+async function openCompareView(refPlanoId, similares) {
+  $('compare-view').classList.remove('hidden');
+
+  // Header
+  const refData = state.currentPlanoData;
+  $('compare-pieza').textContent = refData
+    ? `${refData.vehiculo} · ${refData.pieza_nombre || refData.archivo}`
+    : '';
+
+  // Imagen referencia (panel izquierdo)
+  if (refData) {
+    const src = refData.render?.png_url || (refData.render?.png
+      ? `/renders/${encodeURIComponent(refData.render.png.split('\\').pop().split('/').pop())}`
+      : null);
+    const imgA = $('compare-img-a');
+    if (src) { imgA.src = src; }
+    $('compare-info-a').innerHTML = `<b>${refData.vehiculo}</b> · ${refData.archivo}<br><span style="color:var(--text-3)">${refData.pieza_nombre || ''}</span>`;
+  }
+
+  // Strip de thumbnails
+  renderCompareStrip(similares);
+
+  // Cargar el #1 automáticamente
+  if (similares.length > 0) {
+    loadSimilarIntoPanel(similares[0]);
+    document.querySelector('.compare-thumb')?.classList.add('active');
+  }
+}
+
+function renderCompareStrip(similares) {
+  const strip = $('compare-strip');
+  strip.innerHTML = '';
+  similares.forEach((s, i) => {
+    const pct = Math.round(s.score_total * 100);
+    const cls = pct >= 70 ? 'high' : pct >= 40 ? 'mid' : 'low';
+    const thumb = document.createElement('div');
+    thumb.className = 'compare-thumb';
+    thumb.dataset.idx = i;
+    thumb.innerHTML = `
+      <img class="compare-thumb-img" src="${s.png_url || ''}" alt="${s.archivo}"
+           onerror="this.style.display='none'">
+      <div class="compare-thumb-meta">
+        <div class="compare-thumb-score ${cls}">${pct}%</div>
+        <div class="compare-thumb-name">${s.archivo}</div>
+      </div>`;
+    thumb.addEventListener('click', () => {
+      document.querySelectorAll('.compare-thumb').forEach(t => t.classList.remove('active'));
+      thumb.classList.add('active');
+      loadSimilarIntoPanel(s);
+    });
+    strip.appendChild(thumb);
+  });
+}
+
+function loadSimilarIntoPanel(s) {
+  const pct = Math.round(s.score_total * 100);
+  const cls = pct >= 70 ? 'high' : pct >= 40 ? 'mid' : 'low';
+
+  // Panel derecho
+  const imgB = $('compare-img-b');
+  const urlB = s.png_url || `/api/render/${s.plano_id}`;
+  imgB.src = urlB;
+  imgB.onerror = () => { imgB.style.display = 'none'; $('compare-empty-b').style.display = 'flex'; };
+  imgB.onload  = () => { imgB.style.display = 'block'; imgB.style.opacity = '1'; $('compare-empty-b').style.display = 'none'; };
+  $('compare-panel-info-b').innerHTML = `<b>${s.vehiculo}</b> · ${s.archivo}<br><span style="color:var(--text-3)">${s.pieza_nombre || ''}</span>`;
+
+  // Score central — usar los IDs ya existentes en HTML
+  const big = $('compare-score-big');
+  big.textContent = `${pct}%`;
+  big.className = `compare-score-big ${cls}`;
+
+  $('compare-score-bars').innerHTML = [
+    ['Cajetines', 'caj', s.score_cajetines],
+    ['Radios',    'rad', s.score_radios],
+    ['Cotas',     'cot', s.score_cotas],
+    ['Geometría', 'geo', s.score_geometria],
+  ].map(([lbl, key, v]) => `
+    <div class="csb-row">
+      <div class="csb-label"><span>${lbl}</span><span>${Math.round(v*100)}%</span></div>
+      <div class="csb-track"><div class="csb-fill ${key}" style="width:${Math.round(v*100)}%"></div></div>
+    </div>`).join('');
+
+  $('compare-zones').innerHTML = (s.detalles_zonas || []).map(z => {
+    const zPct = Math.round(z.score * 100);
+    const icon = z.match ? '✓' : '≠';
+    return `<div class="cz-row">
+      <span class="cz-zona">${z.zona}</span>
+      <span class="cz-icon" style="color:${z.match ? '#34d399' : '#f87171'}">${icon}</span>
+      <span class="cz-score">${zPct}%</span>
+    </div>`;
+  }).join('') || '<div style="font-size:10px;color:var(--text-3)">Sin zonas</div>';
+}
+
+// Botón volver
+$('compare-back').addEventListener('click', () => {
+  $('compare-view').classList.add('hidden');
+});
 
 // ═══════════════════════════════════════════════
 //  SAP IMAGE MODAL
